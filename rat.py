@@ -190,7 +190,7 @@ def export_to_benchmark_format(
     output_path: str,
 ) -> None:
     """
-    Export RAT samples to the benchmark input format used by benchmark_revised.py
+    Export RAT samples to the benchmark input format used by benchmark.py
     
     Format:
     ---
@@ -341,7 +341,7 @@ Examples:
   python rat_benchmark_adapter.py -o rat_100.txt -n 100
   
   # Then run benchmark
-  python benchmark_revised.py rat_benchmark_input.txt -o rat_outputs/
+  python benchmark.py rat_benchmark_input.txt -o rat_outputs/
         """
     )
     
@@ -438,11 +438,11 @@ Examples:
     print(f"""
 Run the benchmark on the converted dataset:
 
-  python benchmark_revised.py {args.output} -o rat_benchmark_outputs/
+  python benchmark.py {args.output} -o rat_benchmark_outputs/
 
 Or with specific k value:
 
-  python benchmark_revised.py {args.output} -o rat_benchmark_outputs/ -k 5
+  python benchmark.py {args.output} -o rat_benchmark_outputs/ -k 5
 
 Key metrics to watch:
   - False Cloud Release Rate: Should be LOW (we want to catch all sensitive content)

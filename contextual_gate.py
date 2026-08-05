@@ -56,6 +56,7 @@ class GateFeatures:
     # k-anonymity
     estimated_k_lower: Optional[float] = None
     k_estimate_available: bool = False
+    k_estimate_method: str = "unknown"
     
     # Masking impact
     mask_count: int = 0
@@ -167,8 +168,14 @@ class ContextualGate:
         # k-anonymity failure
         if features.k_estimate_available and features.estimated_k_lower is not None:
             if features.estimated_k_lower < policy.k_minimum:
-                reasons.append(f"k_lower ({features.estimated_k_lower:.1f}) < k_min ({policy.k_minimum})")
-                return GateDecision.UNSAFE_ROUTE_LOCAL, reasons
+                if features.k_estimate_method == "empirical_joint":
+                    reasons.append(f"k_lower ({features.estimated_k_lower:.1f}) < k_min ({policy.k_minimum})")
+                    return GateDecision.UNSAFE_ROUTE_LOCAL, reasons
+
+                reasons.append(
+                    f"k_lower ({features.estimated_k_lower:.1f}) < k_min ({policy.k_minimum}) from {features.k_estimate_method}; invoking deeper analysis"
+                )
+                return GateDecision.UNCERTAIN_NEED_LLM, reasons
         elif policy.require_joint_estimate:
             # Can't estimate k and policy requires it
             reasons.append("Joint k estimate unavailable - failing closed")

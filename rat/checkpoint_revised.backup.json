@@ -1,0 +1,1090 @@
+{
+  "input_file_hash": "b416898ad1ff54d255c752b29e811a94",
+  "k_minimum": 5,
+  "total_samples": 20,
+  "processed_count": 20,
+  "results": [
+    {
+      "sample_name": "RAT-0 (difficulty=1, Medical consultation)",
+      "sample_hash": "064c7745432740ac",
+      "text_length": 5149,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 19,
+      "quasi_identifier_count": 12,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 5149,
+      "masked_text_length": 5129,
+      "masking_ratio": 0.0038842493688094775,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.49911022186279297,
+      "detection_time": 0.1497330665588379,
+      "risk_estimation_time": 0.0998220443725586,
+      "gate_time": 0.0499110221862793,
+      "llm_time": 0.000728,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:28:11.013929"
+    },
+    {
+      "sample_name": "RAT-1 (difficulty=1, Chatbot conversation)",
+      "sample_hash": "8c1b5027f81fefa0",
+      "text_length": 6525,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 56,
+      "quasi_identifier_count": 40,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 6525,
+      "masked_text_length": 6559,
+      "masking_ratio": -0.005210727969348659,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.2862205505371094,
+      "detection_time": 0.08586616516113281,
+      "risk_estimation_time": 0.05724411010742188,
+      "gate_time": 0.02862205505371094,
+      "llm_time": 0.000578,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:28:16.449841"
+    },
+    {
+      "sample_name": "RAT-2 (difficulty=1, Medical consultation)",
+      "sample_hash": "551fe16420508371",
+      "text_length": 5618,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 25,
+      "quasi_identifier_count": 15,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 5618,
+      "masked_text_length": 5615,
+      "masking_ratio": 0.000533997864008544,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.24424529075622559,
+      "detection_time": 0.07327358722686768,
+      "risk_estimation_time": 0.04884905815124512,
+      "gate_time": 0.02442452907562256,
+      "llm_time": 0.000581,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:28:21.662433"
+    },
+    {
+      "sample_name": "RAT-3 (difficulty=1, Meeting transcript)",
+      "sample_hash": "f9c40d1f068b3354",
+      "text_length": 5797,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 33,
+      "quasi_identifier_count": 10,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 5797,
+      "masked_text_length": 5790,
+      "masking_ratio": 0.0012075211316198034,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.2464771270751953,
+      "detection_time": 0.0739431381225586,
+      "risk_estimation_time": 0.04929542541503906,
+      "gate_time": 0.02464771270751953,
+      "llm_time": 0.000574,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:28:26.779296"
+    },
+    {
+      "sample_name": "RAT-4 (difficulty=1, Medical consultation)",
+      "sample_hash": "6082f92eca004d9d",
+      "text_length": 5494,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 17,
+      "quasi_identifier_count": 4,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 5494,
+      "masked_text_length": 5488,
+      "masking_ratio": 0.0010921004732435385,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.21796226501464844,
+      "detection_time": 0.06538867950439453,
+      "risk_estimation_time": 0.04359245300292969,
+      "gate_time": 0.021796226501464844,
+      "llm_time": 0.000585,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:28:31.771213"
+    },
+    {
+      "sample_name": "RAT-5 (difficulty=1, Meeting transcript)",
+      "sample_hash": "f80af91b81fcaf31",
+      "text_length": 5976,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 24,
+      "quasi_identifier_count": 17,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 5976,
+      "masked_text_length": 5976,
+      "masking_ratio": 0.0,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.24134373664855957,
+      "detection_time": 0.07240312099456787,
+      "risk_estimation_time": 0.04826874732971192,
+      "gate_time": 0.02413437366485596,
+      "llm_time": 0.000599,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:28:36.860744"
+    },
+    {
+      "sample_name": "RAT-6 (difficulty=1, Meeting transcript)",
+      "sample_hash": "bda5d0aa3c84f523",
+      "text_length": 5273,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 19,
+      "quasi_identifier_count": 9,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 5273,
+      "masked_text_length": 5271,
+      "masking_ratio": 0.00037929072634174094,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.21891331672668457,
+      "detection_time": 0.06567399501800537,
+      "risk_estimation_time": 0.04378266334533692,
+      "gate_time": 0.02189133167266846,
+      "llm_time": 0.000586,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:28:41.793329"
+    },
+    {
+      "sample_name": "RAT-7 (difficulty=1, Meeting transcript)",
+      "sample_hash": "c11cd270205b7be1",
+      "text_length": 5505,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 37,
+      "quasi_identifier_count": 18,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 5505,
+      "masked_text_length": 5506,
+      "masking_ratio": -0.00018165304268846503,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.22704291343688965,
+      "detection_time": 0.06811287403106689,
+      "risk_estimation_time": 0.045408582687377935,
+      "gate_time": 0.022704291343688968,
+      "llm_time": 0.000573,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:28:46.846761"
+    },
+    {
+      "sample_name": "RAT-8 (difficulty=1, Meeting transcript)",
+      "sample_hash": "93d737d3574fc721",
+      "text_length": 6080,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 41,
+      "quasi_identifier_count": 16,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 6080,
+      "masked_text_length": 6069,
+      "masking_ratio": 0.0018092105263157895,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.24200725555419922,
+      "detection_time": 0.07260217666625976,
+      "risk_estimation_time": 0.04840145111083985,
+      "gate_time": 0.024200725555419925,
+      "llm_time": 0.000578,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:28:52.032353"
+    },
+    {
+      "sample_name": "RAT-9 (difficulty=1, Medical consultation)",
+      "sample_hash": "bd28f6a82b6861d3",
+      "text_length": 6334,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 40,
+      "quasi_identifier_count": 28,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 6334,
+      "masked_text_length": 6338,
+      "masking_ratio": -0.0006315124723713293,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.24188446998596191,
+      "detection_time": 0.07256534099578857,
+      "risk_estimation_time": 0.04837689399719239,
+      "gate_time": 0.024188446998596194,
+      "llm_time": 0.000566,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:28:57.235856"
+    },
+    {
+      "sample_name": "RAT-10 (difficulty=1, Chatbot conversation)",
+      "sample_hash": "d298af0744068167",
+      "text_length": 6271,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 57,
+      "quasi_identifier_count": 38,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 6271,
+      "masked_text_length": 6278,
+      "masking_ratio": -0.001116249402009249,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.2587292194366455,
+      "detection_time": 0.07761876583099366,
+      "risk_estimation_time": 0.051745843887329106,
+      "gate_time": 0.025872921943664553,
+      "llm_time": 0.000566,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:29:02.450235"
+    },
+    {
+      "sample_name": "RAT-11 (difficulty=1, Meeting transcript)",
+      "sample_hash": "84bb09441809e777",
+      "text_length": 6435,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 21,
+      "quasi_identifier_count": 17,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 6435,
+      "masked_text_length": 6426,
+      "masking_ratio": 0.0013986013986013986,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.2453615665435791,
+      "detection_time": 0.07360846996307373,
+      "risk_estimation_time": 0.04907231330871582,
+      "gate_time": 0.02453615665435791,
+      "llm_time": 0.00059,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:29:07.660917"
+    },
+    {
+      "sample_name": "RAT-12 (difficulty=1, Chatbot conversation)",
+      "sample_hash": "c5c59d6eda276392",
+      "text_length": 8296,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 43,
+      "quasi_identifier_count": 30,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 8296,
+      "masked_text_length": 8292,
+      "masking_ratio": 0.00048216007714561236,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.2945539951324463,
+      "detection_time": 0.08836619853973389,
+      "risk_estimation_time": 0.05891079902648926,
+      "gate_time": 0.02945539951324463,
+      "llm_time": 0.000594,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:29:13.429379"
+    },
+    {
+      "sample_name": "RAT-13 (difficulty=1, Chatbot conversation)",
+      "sample_hash": "e1eb05ff507e0f16",
+      "text_length": 6203,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 43,
+      "quasi_identifier_count": 12,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 6203,
+      "masked_text_length": 6206,
+      "masking_ratio": -0.00048363694986296955,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.24735450744628906,
+      "detection_time": 0.07420635223388672,
+      "risk_estimation_time": 0.04947090148925781,
+      "gate_time": 0.024735450744628906,
+      "llm_time": 0.000567,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:29:18.751588"
+    },
+    {
+      "sample_name": "RAT-14 (difficulty=1, Chatbot conversation)",
+      "sample_hash": "f80c80975ebf17b2",
+      "text_length": 6489,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 50,
+      "quasi_identifier_count": 22,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 6489,
+      "masked_text_length": 6468,
+      "masking_ratio": 0.003236245954692557,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.2586328983306885,
+      "detection_time": 0.07758986949920654,
+      "risk_estimation_time": 0.051726579666137695,
+      "gate_time": 0.025863289833068848,
+      "llm_time": 0.000565,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:29:24.195589"
+    },
+    {
+      "sample_name": "RAT-15 (difficulty=1, Chatbot conversation)",
+      "sample_hash": "8751d5442dafc400",
+      "text_length": 6017,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 41,
+      "quasi_identifier_count": 26,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 6017,
+      "masked_text_length": 6010,
+      "masking_ratio": 0.00116337045039056,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.29668450355529785,
+      "detection_time": 0.08900535106658936,
+      "risk_estimation_time": 0.05933690071105957,
+      "gate_time": 0.029668450355529785,
+      "llm_time": 0.000572,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:29:29.422518"
+    },
+    {
+      "sample_name": "RAT-16 (difficulty=1, Chatbot conversation)",
+      "sample_hash": "aa72c8df416f8b4c",
+      "text_length": 7588,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 45,
+      "quasi_identifier_count": 13,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 7588,
+      "masked_text_length": 7608,
+      "masking_ratio": -0.002635740643120717,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.2935822010040283,
+      "detection_time": 0.08807466030120849,
+      "risk_estimation_time": 0.058716440200805665,
+      "gate_time": 0.029358220100402833,
+      "llm_time": 0.000578,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:29:35.244764"
+    },
+    {
+      "sample_name": "RAT-17 (difficulty=1, Chatbot conversation)",
+      "sample_hash": "ed3def32d485cfa8",
+      "text_length": 7544,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 40,
+      "quasi_identifier_count": 16,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 7544,
+      "masked_text_length": 7555,
+      "masking_ratio": -0.0014581124072110287,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.3084292411804199,
+      "detection_time": 0.09252877235412597,
+      "risk_estimation_time": 0.06168584823608399,
+      "gate_time": 0.030842924118041994,
+      "llm_time": 0.000587,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:29:41.082196"
+    },
+    {
+      "sample_name": "RAT-18 (difficulty=1, Chatbot conversation)",
+      "sample_hash": "669e2ce31b4a21c4",
+      "text_length": 5935,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 30,
+      "quasi_identifier_count": 20,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 5935,
+      "masked_text_length": 5960,
+      "masking_ratio": -0.004212299915754001,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.21516823768615723,
+      "detection_time": 0.06455047130584717,
+      "risk_estimation_time": 0.04303364753723145,
+      "gate_time": 0.021516823768615724,
+      "llm_time": 0.000582,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:29:46.228038"
+    },
+    {
+      "sample_name": "RAT-19 (difficulty=1, Chatbot conversation)",
+      "sample_hash": "2adee0440314c661",
+      "text_length": 6898,
+      "expected_critical": true,
+      "tier": 2,
+      "gate_decision": "UNCERTAIN_NEED_LLM",
+      "gate_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "k_lower": 1.0,
+      "k_upper": 1.0,
+      "joint_risk_score": 1.0,
+      "direct_identifier_count": 25,
+      "quasi_identifier_count": 31,
+      "high_harm_categories": [],
+      "llm_invoked": true,
+      "llm_decision": null,
+      "llm_explanation": null,
+      "original_text_length": 6898,
+      "masked_text_length": 6898,
+      "masking_ratio": 0.0,
+      "hard_stop_triggered": true,
+      "hard_stop_reasons": [
+        "Conservative k_lower (1.0) below threshold"
+      ],
+      "uncertainty_flags": [
+        "llm_abstained"
+      ],
+      "total_time": 0.24180269241333008,
+      "detection_time": 0.07254080772399903,
+      "risk_estimation_time": 0.04836053848266602,
+      "gate_time": 0.02418026924133301,
+      "llm_time": 0.00057,
+      "tiers_by_k": {
+        "2": 2,
+        "3": 2,
+        "5": 2,
+        "10": 2,
+        "20": 2,
+        "50": 2,
+        "100": 2
+      },
+      "k_lowers_by_k": {
+        "2": 1.0,
+        "3": 1.0,
+        "5": 1.0,
+        "10": 1.0,
+        "20": 1.0,
+        "50": 1.0,
+        "100": 1.0
+      },
+      "processed_at": "2026-08-05T14:29:51.569278"
+    }
+  ],
+  "last_updated": "2026-08-05T14:29:51.569718",
+  "version": "1.0"
+}

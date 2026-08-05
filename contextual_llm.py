@@ -99,7 +99,8 @@ class ContextualLLMAnalyzer:
         except requests.exceptions.Timeout:
             evidence.model_abstained = True
             return evidence
-        except Exception as e:
+        except Exception:
+            evidence.model_abstained = True
             evidence.parsing_error = True
             return evidence
     

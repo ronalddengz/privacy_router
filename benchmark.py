@@ -18,6 +18,7 @@ Usage:
 """
 
 import argparse
+import csv
 import hashlib
 import json
 import signal
@@ -53,6 +54,83 @@ def _json_safe(value: Any) -> Any:
 def _write_json(path: Path, payload: Any):
     with open(path, "w") as f:
         json.dump(_json_safe(payload), f, indent=2, default=str, allow_nan=False)
+
+
+def _tier_name(tier_value: int) -> str:
+    return {
+        Tier.TIER_1_CLOUD_ORIGINAL.value: "TIER_1_CLOUD_ORIGINAL",
+        Tier.TIER_2_CLOUD_MASKED.value: "TIER_2_CLOUD_MASKED",
+        Tier.TIER_3_LOCAL.value: "TIER_3_LOCAL",
+    }.get(tier_value, str(tier_value))
+
+
+def _write_timing_summary(output_dir: Path, results: List["RevisedPipelineResult"]):
+    """Write a per-sample timing/tier summary for quick inspection."""
+    rows = []
+    for result in results:
+        rows.append({
+            "sample_name": result.sample_name,
+            "expected_critical": result.expected_critical,
+            "tier": result.tier,
+            "tier_name": _tier_name(result.tier),
+            "total_time_seconds": round(result.total_time, 6),
+            "masking_ratio": round(result.masking_ratio, 6),
+            "k_lower": round(result.k_lower, 6),
+        })
+
+    rows.sort(key=lambda row: row["total_time_seconds"], reverse=True)
+
+    json_path = output_dir / "sample_timing_summary.json"
+    csv_path = output_dir / "sample_timing_summary.csv"
+
+    _write_json(json_path, rows)
+
+    with open(csv_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "sample_name",
+                "expected_critical",
+                "tier",
+                "tier_name",
+                "total_time_seconds",
+                "masking_ratio",
+                "k_lower",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+    print(f"\nSaved per-sample timing summary to {json_path}")
+    print(f"Saved per-sample timing CSV to {csv_path}")
+
+    if rows:
+        print("\nPer-sample timing/tier summary:")
+        for row in rows:
+            print(
+                f"  - {row['sample_name']}: tier={row['tier_name']} | "
+                f"time={row['total_time_seconds']:.3f}s | k_lower={row['k_lower']:.3f}"
+            )
+
+
+def _load_results_from_dicts(result_dicts: List[Dict[str, Any]]) -> List["RevisedPipelineResult"]:
+    """Rehydrate serialized results, restoring integer keys used by multi-k analysis."""
+    results = []
+
+    for data in result_dicts:
+        tiers_by_k_raw = data.get("tiers_by_k", {}) or {}
+        k_lowers_by_k_raw = data.get("k_lowers_by_k", {}) or {}
+
+        data = dict(data)
+        data["tiers_by_k"] = {int(k): v for k, v in tiers_by_k_raw.items()}
+        data["k_lowers_by_k"] = {int(k): v for k, v in k_lowers_by_k_raw.items()}
+        results.append(RevisedPipelineResult(**data))
+
+    return results
+
+
+def _has_positive_k_lower(result: "RevisedPipelineResult") -> bool:
+    return result.k_lower is not None and result.k_lower > 0
 
 
 # =============================================================================
@@ -302,7 +380,7 @@ class CheckpointManager:
     
     def _dict_to_result(self, d: Dict) -> RevisedPipelineResult:
         """Convert dict back to RevisedPipelineResult."""
-        return RevisedPipelineResult(**d)
+        return _load_results_from_dicts([d])[0]
     
     def clear_checkpoint(self):
         """Clear existing checkpoint."""
@@ -394,7 +472,9 @@ class RevisedBenchmarkPipeline:
         db_path = Path(self.db_path)
         if not db_path.exists():
             print(f"  Creating sample frequency table at {db_path}...")
-            create_sample_frequency_table(str(db_path))
+        else:
+            print(f"  Refreshing sample frequency table at {db_path}...")
+        create_sample_frequency_table(str(db_path))
         self.freq_table = LocalFrequencyTable(str(db_path))
     
     def _init_router(self):
@@ -415,7 +495,7 @@ class RevisedBenchmarkPipeline:
             },
             cloud_allows_phi=False,
             cloud_allows_masked_phi=True,
-            require_joint_estimate=True,
+            require_joint_estimate=False,
         )
         self.router = PrivacyRouter(
             policy=policy,
@@ -656,13 +736,13 @@ def analyze_results(results: List[RevisedPipelineResult]) -> BenchmarkAnalysis:
     llm_invoked = [r for r in results if r.llm_invoked]
     
     # k-anonymity stats
-    k_lowers = [r.k_lower for r in results if r.k_lower > 0]
+    k_lowers = [r.k_lower for r in results if _has_positive_k_lower(r)]
     mean_k_lower = np.mean(k_lowers) if k_lowers else 0.0
     median_k_lower = np.median(k_lowers) if k_lowers else 0.0
     
     mean_k_by_tier = {}
     for tier_name, tier_results in [("TIER_1", tier_1), ("TIER_2", tier_2), ("TIER_3", tier_3)]:
-        k_vals = [r.k_lower for r in tier_results if r.k_lower > 0]
+        k_vals = [r.k_lower for r in tier_results if _has_positive_k_lower(r)]
         mean_k_by_tier[tier_name] = np.mean(k_vals) if k_vals else 0.0
     
     # Timing
@@ -814,6 +894,8 @@ def find_optimal_k(results: List[RevisedPipelineResult], method: str = 'knee') -
 def create_visualizations(results: List[RevisedPipelineResult], output_dir: Path):
     """Create visualizations for benchmark results."""
     try:
+        import matplotlib
+        matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
         print("matplotlib not available - skipping visualizations")
@@ -822,6 +904,8 @@ def create_visualizations(results: List[RevisedPipelineResult], output_dir: Path
     if not results:
         print("No results to visualize")
         return
+
+    output_dir.mkdir(parents=True, exist_ok=True)
     
     # =========================================================================
     # Figure 1: Tier Distribution and Safety Metrics
@@ -875,9 +959,9 @@ def create_visualizations(results: List[RevisedPipelineResult], output_dir: Path
     ax = axes[1, 0]
     
     tier_k_lowers = {
-        'TIER_1': [r.k_lower for r in results if r.tier == Tier.TIER_1_CLOUD_ORIGINAL.value and r.k_lower > 0],
-        'TIER_2': [r.k_lower for r in results if r.tier == Tier.TIER_2_CLOUD_MASKED.value and r.k_lower > 0],
-        'TIER_3': [r.k_lower for r in results if r.tier == Tier.TIER_3_LOCAL.value and r.k_lower > 0],
+        'TIER_1': [r.k_lower for r in results if r.tier == Tier.TIER_1_CLOUD_ORIGINAL.value and _has_positive_k_lower(r)],
+        'TIER_2': [r.k_lower for r in results if r.tier == Tier.TIER_2_CLOUD_MASKED.value and _has_positive_k_lower(r)],
+        'TIER_3': [r.k_lower for r in results if r.tier == Tier.TIER_3_LOCAL.value and _has_positive_k_lower(r)],
     }
     
     data_to_plot = [tier_k_lowers[t] for t in ['TIER_1', 'TIER_2', 'TIER_3'] if tier_k_lowers[t]]
@@ -933,12 +1017,16 @@ def create_visualizations(results: List[RevisedPipelineResult], output_dir: Path
 def create_multi_k_visualization(results: List[RevisedPipelineResult], output_dir: Path):
     """Create multi-k threshold analysis visualization."""
     try:
+        import matplotlib
+        matplotlib.use("Agg")
         import matplotlib.pyplot as plt
     except ImportError:
         return
     
     if not results or not results[0].tiers_by_k:
         return
+
+    output_dir.mkdir(parents=True, exist_ok=True)
     
     k_values = sorted(results[0].tiers_by_k.keys())
     
@@ -1122,6 +1210,8 @@ def run_benchmark(
     results_data = [asdict(r) for r in results]
     _write_json(out_path / "pipeline_results.json", results_data)
     print(f"\nSaved pipeline results to {out_path / 'pipeline_results.json'}")
+
+    _write_timing_summary(out_path, results)
     
     # Only generate analysis if we have results and weren't interrupted
     if results and not checkpoint.was_interrupted:
@@ -1186,6 +1276,22 @@ def run_benchmark(
     return results
 
 
+def load_results_from_output_dir(output_dir: Path) -> List[RevisedPipelineResult]:
+    """Load benchmark results from a saved pipeline_results.json file."""
+    results_file = output_dir / "pipeline_results.json"
+
+    if not results_file.exists():
+        raise FileNotFoundError(f"No saved results found at {results_file}")
+
+    with open(results_file, "r", encoding="utf-8") as f:
+        result_dicts = json.load(f)
+
+    if not isinstance(result_dicts, list):
+        raise ValueError(f"Expected a list of results in {results_file}")
+
+    return _load_results_from_dicts(result_dicts)
+
+
 # =============================================================================
 # CLI Entry Point
 # =============================================================================
@@ -1248,14 +1354,26 @@ Checkpoint Behavior:
         action="store_true",
         help="Ignore existing checkpoint and start fresh"
     )
+    parser.add_argument(
+        "--plot-only",
+        action="store_true",
+        help="Skip benchmark execution and regenerate plots from saved pipeline_results.json"
+    )
     
     args = parser.parse_args()
     
-    run_benchmark(
-        input_file=args.input_file,
-        output_dir=args.output_dir,
-        max_samples=args.max_samples,
-        k_minimum=args.k_minimum,
-        db_path=args.db_path,
-        fresh_start=args.fresh,
-    )
+    if args.plot_only:
+        output_dir = Path(args.output_dir)
+        results = load_results_from_output_dir(output_dir)
+        print(f"Loaded {len(results)} saved results from {output_dir / 'pipeline_results.json'}")
+        print("Generating visualizations from saved results...")
+        create_visualizations(results, output_dir)
+    else:
+        run_benchmark(
+            input_file=args.input_file,
+            output_dir=args.output_dir,
+            max_samples=args.max_samples,
+            k_minimum=args.k_minimum,
+            db_path=args.db_path,
+            fresh_start=args.fresh,
+        )

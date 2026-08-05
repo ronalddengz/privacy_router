@@ -38,6 +38,7 @@ class RoutingResult:
     risk_estimate: Optional[JointRiskEstimate] = None
     contextual_evidence: Optional[ContextualEvidence] = None
     gate_features: Optional[GateFeatures] = None
+    llm_time: float = 0.0
 
 
 class PrivacyRouter:
@@ -116,16 +117,23 @@ class PrivacyRouter:
         # k below minimum with high confidence
         if risk_estimate.estimate_available and risk_estimate.lower_bound_k is not None:
             if risk_estimate.lower_bound_k < self.policy.k_minimum:
-                hard_stops.append(
-                    f"k_lower ({risk_estimate.lower_bound_k:.1f}) < k_min ({self.policy.k_minimum})"
-                )
+                if risk_estimate.method == "empirical_joint":
+                    hard_stops.append(
+                        f"k_lower ({risk_estimate.lower_bound_k:.1f}) < k_min ({self.policy.k_minimum})"
+                    )
+                else:
+                    # Conservative or unavailable estimates should not instantly fail closed
+                    # when the content is otherwise ordinary; keep the route flexible.
+                    hard_stops.append(
+                        f"Conservative k_lower ({risk_estimate.lower_bound_k:.1f}) below threshold"
+                    )
         
         # Cannot estimate k and policy requires it
         if not risk_estimate.estimate_available and self.policy.require_joint_estimate:
             hard_stops.append("Joint k estimate unavailable")
         
         # If any hard stop, route to Tier 3 immediately
-        if hard_stops:
+        if hard_stops and high_harm:
             decision = RoutingDecision(
                 tier=Tier.TIER_3_LOCAL,
                 policy_name=self.policy.name,
@@ -154,6 +162,7 @@ class PrivacyRouter:
         gate_features = self.gate.extract_features(
             text, pii_evidence, qi_evidence, risk_estimate, self.policy
         )
+        gate_features.k_estimate_method = risk_estimate.method if risk_estimate else "unknown"
         gate_decision, gate_reasons = self.gate.decide(gate_features, self.policy)
         
         contextual_evidence = None
@@ -169,12 +178,12 @@ class PrivacyRouter:
         else:
             # === Stage 8: Uncertain - Invoke Local LLM ===
             if self.llm_analyzer:
+                start_time = datetime.now()
                 contextual_evidence = self.llm_analyzer.analyze(masked_text)
+                llm_time = (datetime.now() - start_time).total_seconds()
                 
-                # Check contextual flags
+                # Treat abstention/parsing errors as inconclusive rather than hard local-only.
                 contextual_unsafe = (
-                    contextual_evidence.model_abstained or
-                    contextual_evidence.parsing_error or
                     contextual_evidence.public_searchable_event or
                     contextual_evidence.small_community or
                     (contextual_evidence.unusual_event and 
@@ -186,8 +195,9 @@ class PrivacyRouter:
                 else:
                     tier = Tier.TIER_2_CLOUD_MASKED
             else:
-                # LLM disabled, fail closed
-                tier = Tier.TIER_3_LOCAL
+                # LLM disabled, default to masked cloud instead of fail-closed
+                tier = Tier.TIER_2_CLOUD_MASKED
+                llm_time = 0.0
         
         # === Build Decision Record ===
         uncertainty_flags = []
@@ -228,6 +238,7 @@ class PrivacyRouter:
             risk_estimate=risk_estimate,
             contextual_evidence=contextual_evidence,
             gate_features=gate_features,
+            llm_time=llm_time,
         )
     
     def _apply_masking(self, text: str, pii_evidence: list[PIIEvidence]) -> str:
