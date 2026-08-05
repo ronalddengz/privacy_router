@@ -1,0 +1,42 @@
+{
+  "total_samples": 30,
+  "tier_1_count": 0,
+  "tier_2_count": 0,
+  "tier_3_count": 30,
+  "tier_1_pct": 0.0,
+  "tier_2_pct": 0.0,
+  "tier_3_pct": 100.0,
+  "false_cloud_release_count": 0,
+  "false_cloud_release_rate": 0.0,
+  "over_censoring_count": 0,
+  "over_censoring_rate": 0.0,
+  "llm_invocation_count": 0,
+  "llm_invocation_rate": 0.0,
+  "mean_k_lower": 0.0,
+  "median_k_lower": 0.0,
+  "mean_k_lower_by_tier": {
+    "TIER_1": 0.0,
+    "TIER_2": 0.0,
+    "TIER_3": 0.0
+  },
+  "mean_total_time": 0.09523404439290364,
+  "mean_llm_time": 0,
+  "correlations": {
+    "k_lower": 0.0,
+    "direct_id_count": 0.0,
+    "qi_count": 0.0,
+    "high_harm_count": 0.0,
+    "masking_ratio": 0.0
+  },
+  "optimal_k_knee": 3,
+  "optimal_k_efficiency": 2,
+  "optimal_k_pareto": [
+    2,
+    3,
+    5,
+    10,
+    20,
+    50,
+    100
+  ]
+}
