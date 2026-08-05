@@ -75,7 +75,11 @@ class PrivacyRouter:
         
         Returns masked text and routing decision with full evidence.
         """
-        input_hash = hashlib.sha256(text.encode()).hexdigest()[:32]
+        if not isinstance(text, str):
+            raise TypeError("text must be a string")
+
+        input_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()[:32]
+        llm_time = 0.0
         
         # === Stage 1: Fast PII/PHI Detection ===
         pii_evidence = self.pii_detector.detect(text, self.policy)
@@ -121,19 +125,16 @@ class PrivacyRouter:
                     hard_stops.append(
                         f"k_lower ({risk_estimate.lower_bound_k:.1f}) < k_min ({self.policy.k_minimum})"
                     )
-                else:
-                    # Conservative or unavailable estimates should not instantly fail closed
-                    # when the content is otherwise ordinary; keep the route flexible.
-                    hard_stops.append(
-                        f"Conservative k_lower ({risk_estimate.lower_bound_k:.1f}) below threshold"
-                    )
         
         # Cannot estimate k and policy requires it
         if not risk_estimate.estimate_available and self.policy.require_joint_estimate:
             hard_stops.append("Joint k estimate unavailable")
         
-        # If any hard stop, route to Tier 3 immediately
-        if hard_stops and high_harm:
+        # Any hard stop is a definitive local-only decision. Previously this
+        # branch required high_harm as well, allowing unmasked identifiers,
+        # low-k records, and unavailable required estimates to proceed to the
+        # contextual gate.
+        if hard_stops:
             decision = RoutingDecision(
                 tier=Tier.TIER_3_LOCAL,
                 policy_name=self.policy.name,
@@ -164,6 +165,18 @@ class PrivacyRouter:
         )
         gate_features.k_estimate_method = risk_estimate.method if risk_estimate else "unknown"
         gate_decision, gate_reasons = self.gate.decide(gate_features, self.policy)
+
+        # A conservative bound can be zero simply because marginal tables do
+        # not establish an intersection; it is not an observed equivalence
+        # class of size zero. Let contextual analysis resolve that uncertainty
+        # when the gate has marked this specific case unsafe.
+        if (
+            gate_decision == GateDecision.UNSAFE_ROUTE_LOCAL
+            and risk_estimate.method == "conservative_bound"
+            and risk_estimate.lower_bound_k is not None
+            and risk_estimate.lower_bound_k < self.policy.k_minimum
+        ):
+            gate_decision = GateDecision.UNCERTAIN_NEED_LLM
         
         contextual_evidence = None
         
@@ -183,12 +196,16 @@ class PrivacyRouter:
                 llm_time = (datetime.now() - start_time).total_seconds()
                 
                 # Treat abstention/parsing errors as inconclusive rather than hard local-only.
-                contextual_unsafe = (
-                    contextual_evidence.public_searchable_event or
-                    contextual_evidence.small_community or
-                    (contextual_evidence.unusual_event and 
-                     contextual_evidence.unusual_event_confidence > 0.7)
-                )
+                contextual_unsafe = any((
+                    contextual_evidence.public_searchable_event,
+                    contextual_evidence.small_community,
+                    contextual_evidence.temporal_correlation_risk,
+                    contextual_evidence.relationship_network_risk,
+                    contextual_evidence.inferential_medical_disclosure,
+                    contextual_evidence.rare_combination_indicator,
+                    contextual_evidence.unusual_event and
+                    contextual_evidence.unusual_event_confidence > 0.7,
+                ))
                 
                 if contextual_unsafe:
                     tier = Tier.TIER_3_LOCAL

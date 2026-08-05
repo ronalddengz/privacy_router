@@ -216,8 +216,14 @@ class LocalFrequencyTable:
                     source=population_id,
                     population_size=pop_size,
                 )
-            # Use upper bound of marginal to be conservative about joint
-            marginal_probs.append(marginal.frequency)
+            # A defensible lower bound for the intersection must use the
+            # marginal lower confidence bounds. Using point estimates here
+            # overstates the amount of anonymity established by the table.
+            marginal_probs.append(
+                marginal.lower_bound
+                if marginal.lower_bound is not None
+                else (marginal.frequency or 0.0)
+            )
         
         if not marginal_probs or pop_size == 0:
             return FrequencyResult(is_available=False)

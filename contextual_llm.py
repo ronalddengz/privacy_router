@@ -141,6 +141,21 @@ Text to analyze:
         """Parse LLM response into structured evidence."""
         evidence = ContextualEvidence()
         evidence.analysis_performed = True
+
+        def read_factor(factors: dict, name: str) -> tuple[bool, float]:
+            value = factors.get(name, {})
+            if not isinstance(value, dict):
+                return False, 0.0
+            detected = value.get("detected", False)
+            confidence = value.get("confidence", 0.0)
+            if not isinstance(detected, bool):
+                detected = False
+            try:
+                confidence = float(confidence)
+            except (TypeError, ValueError):
+                confidence = 0.0
+            confidence = max(0.0, min(1.0, confidence))
+            return detected, confidence
         
         try:
             # Try to extract JSON from response
@@ -156,37 +171,24 @@ Text to analyze:
             factors = data.get("factors", {})
             
             # Map to evidence fields
-            if "UNUSUAL_EVENT" in factors:
-                f = factors["UNUSUAL_EVENT"]
-                evidence.unusual_event = f.get("detected", False)
-                evidence.unusual_event_confidence = f.get("confidence", 0.0)
-            
-            if "PUBLIC_SEARCHABLE_EVENT" in factors:
-                f = factors["PUBLIC_SEARCHABLE_EVENT"]
-                evidence.public_searchable_event = f.get("detected", False)
-                evidence.public_event_confidence = f.get("confidence", 0.0)
-            
-            if "SMALL_COMMUNITY" in factors:
-                f = factors["SMALL_COMMUNITY"]
-                evidence.small_community = f.get("detected", False)
-                evidence.small_community_confidence = f.get("confidence", 0.0)
-            
-            if "TEMPORAL_CORRELATION" in factors:
-                f = factors["TEMPORAL_CORRELATION"]
-                evidence.temporal_correlation_risk = f.get("detected", False)
-                evidence.temporal_confidence = f.get("confidence", 0.0)
-            
-            if "RELATIONSHIP_NETWORK" in factors:
-                f = factors["RELATIONSHIP_NETWORK"]
-                evidence.relationship_network_risk = f.get("detected", False)
-                evidence.relationship_confidence = f.get("confidence", 0.0)
-            
-            if "INFERENTIAL_MEDICAL" in factors:
-                f = factors["INFERENTIAL_MEDICAL"]
-                evidence.inferential_medical_disclosure = f.get("detected", False)
-                evidence.inferential_confidence = f.get("confidence", 0.0)
-            
-            evidence.overall_confidence = data.get("overall_confidence", 0.0)
+            (evidence.unusual_event,
+             evidence.unusual_event_confidence) = read_factor(factors, "UNUSUAL_EVENT")
+            (evidence.public_searchable_event,
+             evidence.public_event_confidence) = read_factor(factors, "PUBLIC_SEARCHABLE_EVENT")
+            (evidence.small_community,
+             evidence.small_community_confidence) = read_factor(factors, "SMALL_COMMUNITY")
+            (evidence.temporal_correlation_risk,
+             evidence.temporal_confidence) = read_factor(factors, "TEMPORAL_CORRELATION")
+            (evidence.relationship_network_risk,
+             evidence.relationship_confidence) = read_factor(factors, "RELATIONSHIP_NETWORK")
+            (evidence.inferential_medical_disclosure,
+             evidence.inferential_confidence) = read_factor(factors, "INFERENTIAL_MEDICAL")
+
+            try:
+                evidence.overall_confidence = float(data.get("overall_confidence", 0.0))
+            except (TypeError, ValueError):
+                evidence.overall_confidence = 0.0
+            evidence.overall_confidence = max(0.0, min(1.0, evidence.overall_confidence))
             
             # Check for abstention (all low confidence)
             all_confidences = [

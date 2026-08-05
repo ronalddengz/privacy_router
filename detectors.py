@@ -570,7 +570,25 @@ class QIDetector:
                     confidence=0.85,
                 )
         
-        return evidence
+        # Multiple rules commonly describe the same fact (for example the
+        # standalone and labelled sex patterns, or a state found by both
+        # spaCy and the gazetteer). Keep one QI per normalized value so the
+        # risk estimator does not count detector duplicates as additional
+        # identifying attributes.
+        deduplicated: dict[tuple[str, Optional[str]], QIEvidence] = {}
+        for qi in evidence:
+            key = (qi.qi_type, qi.normalized_value)
+            existing = deduplicated.get(key)
+            if existing is None:
+                deduplicated[key] = qi
+                continue
+            if qi.extraction_confidence > existing.extraction_confidence:
+                existing.extraction_confidence = qi.extraction_confidence
+            if qi.detector and qi.detector != existing.detector:
+                if qi.detector not in existing.detector_agreement:
+                    existing.detector_agreement.append(qi.detector)
+
+        return list(deduplicated.values())
     
     def check_assertion_status(self, text: str, qi: QIEvidence) -> QIEvidence:
         """

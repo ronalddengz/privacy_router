@@ -165,17 +165,16 @@ class ContextualGate:
         if features.has_rare_occupation:
             reasons.append("Rare occupation detected - potential unique identifier")
         
-        # k-anonymity failure
+        # k-anonymity failure. A lower bound below the policy minimum is
+        # already sufficient evidence that the record is unsafe. This must
+        # not be delegated to a probabilistic/contextual model: the model
+        # cannot make an unsafe equivalence class larger.
         if features.k_estimate_available and features.estimated_k_lower is not None:
             if features.estimated_k_lower < policy.k_minimum:
-                if features.k_estimate_method == "empirical_joint":
-                    reasons.append(f"k_lower ({features.estimated_k_lower:.1f}) < k_min ({policy.k_minimum})")
-                    return GateDecision.UNSAFE_ROUTE_LOCAL, reasons
-
                 reasons.append(
-                    f"k_lower ({features.estimated_k_lower:.1f}) < k_min ({policy.k_minimum}) from {features.k_estimate_method}; invoking deeper analysis"
+                    f"k_lower ({features.estimated_k_lower:.1f}) < k_min ({policy.k_minimum})"
                 )
-                return GateDecision.UNCERTAIN_NEED_LLM, reasons
+                return GateDecision.UNSAFE_ROUTE_LOCAL, reasons
         elif policy.require_joint_estimate:
             # Can't estimate k and policy requires it
             reasons.append("Joint k estimate unavailable - failing closed")

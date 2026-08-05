@@ -66,51 +66,24 @@ def _tier_name(tier_value: int) -> str:
 
 def _write_timing_summary(output_dir: Path, results: List["RevisedPipelineResult"]):
     """Write a per-sample timing/tier summary for quick inspection."""
-    rows = []
-    for result in results:
-        rows.append({
-            "sample_name": result.sample_name,
-            "expected_critical": result.expected_critical,
-            "tier": result.tier,
-            "tier_name": _tier_name(result.tier),
-            "total_time_seconds": round(result.total_time, 6),
-            "masking_ratio": round(result.masking_ratio, 6),
-            "k_lower": round(result.k_lower, 6),
-        })
-
+    rows = [{
+        "sample_name": result.sample_name,
+        "expected_critical": result.expected_critical,
+        "tier": result.tier,
+        "tier_name": _tier_name(result.tier),
+        "total_time_seconds": round(result.total_time, 6),
+        "masking_ratio": round(result.masking_ratio, 6),
+        "k_lower": round(result.k_lower, 6),
+    } for result in results]
     rows.sort(key=lambda row: row["total_time_seconds"], reverse=True)
-
-    json_path = output_dir / "sample_timing_summary.json"
-    csv_path = output_dir / "sample_timing_summary.csv"
-
-    _write_json(json_path, rows)
-
-    with open(csv_path, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=[
-                "sample_name",
-                "expected_critical",
-                "tier",
-                "tier_name",
-                "total_time_seconds",
-                "masking_ratio",
-                "k_lower",
-            ],
-        )
+    _write_json(output_dir / "sample_timing_summary.json", rows)
+    with open(output_dir / "sample_timing_summary.csv", "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()) if rows else [
+            "sample_name", "expected_critical", "tier", "tier_name",
+            "total_time_seconds", "masking_ratio", "k_lower",
+        ])
         writer.writeheader()
         writer.writerows(rows)
-
-    print(f"\nSaved per-sample timing summary to {json_path}")
-    print(f"Saved per-sample timing CSV to {csv_path}")
-
-    if rows:
-        print("\nPer-sample timing/tier summary:")
-        for row in rows:
-            print(
-                f"  - {row['sample_name']}: tier={row['tier_name']} | "
-                f"time={row['total_time_seconds']:.3f}s | k_lower={row['k_lower']:.3f}"
-            )
 
 
 def _load_results_from_dicts(result_dicts: List[Dict[str, Any]]) -> List["RevisedPipelineResult"]:
@@ -1012,6 +985,91 @@ def create_visualizations(results: List[RevisedPipelineResult], output_dir: Path
     # Figure 2: Multi-k Analysis
     # =========================================================================
     create_multi_k_visualization(results, output_dir)
+
+    # Figure 3: Privacy/accuracy trade-off. This is generated for every
+    # benchmark output directory, including RAT runs (which use this same
+    # runner with a RAT-derived input file).
+    create_privacy_accuracy_visualization(results, output_dir)
+
+
+def create_privacy_accuracy_visualization(
+    results: List[RevisedPipelineResult], output_dir: Path
+):
+    """Plot privacy protection against balanced classification accuracy.
+
+    A local-only route is treated as a positive (sensitive) prediction:
+    privacy protection is sensitivity/recall on critical samples, while
+    balanced accuracy averages that recall with specificity on non-critical
+    samples. Using balanced accuracy avoids a misleadingly high score when
+    a dataset is dominated by one class.
+    """
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return
+
+    if not results:
+        return
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    k_values = sorted(results[0].tiers_by_k.keys()) if results[0].tiers_by_k else []
+    if not k_values:
+        k_values = [None]
+
+    critical = [r for r in results if r.expected_critical]
+    non_critical = [r for r in results if not r.expected_critical]
+    privacy = []
+    accuracy = []
+
+    for k in k_values:
+        def tier_for(result):
+            return result.tiers_by_k.get(k, result.tier) if k is not None else result.tier
+
+        true_positive_rate = (
+            sum(tier_for(r) == Tier.TIER_3_LOCAL.value for r in critical) / len(critical)
+            if critical else 0.0
+        )
+        true_negative_rate = (
+            sum(tier_for(r) != Tier.TIER_3_LOCAL.value for r in non_critical) / len(non_critical)
+            if non_critical else 0.0
+        )
+        privacy.append(true_positive_rate * 100)
+        accuracy.append((true_positive_rate + true_negative_rate) * 50)
+
+    fig, ax = plt.subplots(figsize=(9, 7))
+    colors = np.arange(len(k_values))
+    scatter = ax.scatter(
+        privacy, accuracy, c=colors, cmap="viridis", s=130,
+        edgecolors="black", linewidths=0.6, zorder=3,
+    )
+    ax.plot(privacy, accuracy, color="gray", linestyle="--", alpha=0.5, zorder=1)
+
+    for index, k in enumerate(k_values):
+        label = f"k={k}" if k is not None else "current"
+        ax.annotate(label, (privacy[index], accuracy[index]),
+                    xytext=(6, 6), textcoords="offset points", fontsize=9)
+
+    ax.plot(100, 100, marker="*", color="green", markersize=16,
+            label="Ideal (100% privacy, 100% accuracy)")
+    ax.set_xlim(0, 105)
+    ax.set_ylim(0, 105)
+    ax.set_xlabel("Privacy protection: critical samples kept local (%)")
+    ax.set_ylabel("Balanced accuracy (%)")
+    ax.set_title("Privacy–Accuracy Trade-off")
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="lower right")
+    if len(k_values) > 1:
+        colorbar = fig.colorbar(scatter, ax=ax, ticks=colors)
+        colorbar.ax.set_yticklabels([str(k) for k in k_values])
+        colorbar.set_label("k_minimum threshold")
+
+    fig.tight_layout()
+    path = output_dir / "privacy_accuracy.png"
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"  Saved: {path}")
 
 
 def create_multi_k_visualization(results: List[RevisedPipelineResult], output_dir: Path):

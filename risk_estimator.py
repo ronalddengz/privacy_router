@@ -98,8 +98,16 @@ class JointRiskEstimator:
                 qi_combination=tuple(sorted(qi_values.keys())),
                 method="empirical_joint",
                 point_estimate_k=joint_result.count,
-                lower_bound_k=joint_result.lower_bound * pop_info['total_size'] if joint_result.lower_bound else joint_result.count,
-                upper_bound_k=joint_result.upper_bound * pop_info['total_size'] if joint_result.upper_bound else joint_result.count,
+                lower_bound_k=(
+                    joint_result.lower_bound * pop_info['total_size']
+                    if joint_result.lower_bound is not None
+                    else joint_result.count
+                ),
+                upper_bound_k=(
+                    joint_result.upper_bound * pop_info['total_size']
+                    if joint_result.upper_bound is not None
+                    else joint_result.count
+                ),
                 reference_population=population_id,
                 population_size=pop_info['total_size'],
                 estimation_confidence=0.9,
