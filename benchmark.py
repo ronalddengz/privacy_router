@@ -517,7 +517,7 @@ class RevisedBenchmarkPipeline:
         llm_time = result.llm_time if hasattr(result, 'llm_time') else 0.0
         
         # Multi-k analysis
-        k_values = [2, 3, 5, 10, 20, 50, 100]
+        k_values = [2, 5, 10, 15, 20, 50, 100]
         tiers_by_k = {}
         k_lowers_by_k = {}
         

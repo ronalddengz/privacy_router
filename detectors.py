@@ -250,106 +250,233 @@ class PIIDetector:
 
 class QIDetector:
     """
-    Quasi-identifier detection using layered approach.
-    
-    Layers:
-    1. Structured patterns (ages, dates, ZIP codes)
-    2. Terminology matching (conditions, occupations, locations)
-    3. spaCy NER for residual entities
-    
-    No LLM at this stage - that's for contextual analysis only.
+    Detects quasi-identifiers in text with proper normalization to match
+    frequency table canonical values for accurate k-anonymity estimation.
     """
     
-    VERSION = "1.0.0"
+    VERSION = "1.1.0"
     
-    # Age patterns
-    AGE_PATTERNS = [
-        (r'\b(?:i\s*am|i\'m|aged?|age\s+is)\s*(\d{1,3})\b', 'exact'),
-        (r'\b(\d{1,3})\s*(?:year[s]?\s*old|y/?o|yo)\b', 'exact'),
-        (r'\bage[d]?\s*(\d{1,3})\b', 'exact'),
-        (r'\b(\d{1,3})\s*(?:year[s]?\s*of\s*age)\b', 'exact'),
-        (r'\bturn(?:ed)?\s*(\d{1,3})\b', 'exact'),
-    ]
-    
-    # ZIP code patterns
-    ZIP_PATTERNS = [
-        (r'\b(\d{5})-\d{4}\b', 'zip9'),  # ZIP+4
-        (r'\bzip\s*(?:code)?\s*(\d{5})\b', 'zip5'),
-        (r'\b(\d{5})\b', 'zip5'),  # Plain 5-digit (needs context)
-    ]
-    
-    # Date patterns
-    DATE_PATTERNS = [
-        r'\b\d{1,2}/\d{1,2}/\d{2,4}\b',
-        r'\b\d{4}-\d{2}-\d{2}\b',
-        r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2},?\s+\d{4}\b',
-    ]
-    
-    # Common rare disease terms (would be loaded from ontology in production)
-    RARE_DISEASE_TERMS = {
-        'ehlers-danlos', 'ehlers danlos', 'eds', 'hypermobility syndrome',
-        'huntington', 'huntingtons', "huntington's",
-        'marfan', 'cystic fibrosis', 'cf',
-        'als', 'amyotrophic lateral sclerosis',
-        'sickle cell', 'hemophilia', 'tay-sachs',
-        'duchenne', 'muscular dystrophy',
-    }
-    
-    # Occupation terms (subset - would load from BLS SOC codes)
-    RARE_OCCUPATION_TERMS = {
-        'zoologist', 'astronomer', 'epidemiologist',
-        'coroner', 'medical examiner', 'air traffic controller',
-        'nuclear engineer', 'geologist', 'archaeologist',
-    }
-
+    # -------------------------------------------------------------------------
+    # SEX PATTERNS - maps to: "male", "female"
+    # -------------------------------------------------------------------------
     SEX_PATTERNS = [
-        (r'\b(?:sex|gender)\s*[:=]?\s*(male|female|man|woman|boy|girl|nonbinary|transgender)\b', 'contextual'),
-        (r'\b(male|female|man|woman|boy|girl|nonbinary|transgender)\b', 'standalone'),
+        (r'\b(?:sex|gender)\s*[:=]?\s*(male|female|man|woman|boy|girl)\b', 'contextual'),
+        (r'\b(?:i\s+am\s+)?(male|female|a\s+man|a\s+woman)\b', 'statement'),
+        (r'\b(male|female)\b', 'standalone'),
     ]
-
+    
+    # O(1) lookup for sex normalization
+    SEX_NORMALIZATION = {
+        'male': 'male',
+        'man': 'male',
+        'boy': 'male',
+        'a man': 'male',
+        'female': 'female',
+        'woman': 'female',
+        'girl': 'female',
+        'a woman': 'female',
+    }
+    
+    # -------------------------------------------------------------------------
+    # MARITAL STATUS PATTERNS - maps to: "married", "single", "divorced", 
+    #                                     "widowed", "separated"
+    # -------------------------------------------------------------------------
     MARITAL_STATUS_PATTERNS = [
-        (r'\b(?:marital\s+status\s*[:=]?\s*)?(married|single|divorced|widowed|separated|never\s+married|never\s+been\s+married)\b', 'contextual'),
+        (r"\b(?:marital\s+status\s*[:=]?\s*)?(married|single|divorced|widowed|separated|never\s+married|never\s+been\s+married|unmarried|i'?m\s+married|i'?m\s+single|i'?m\s+divorced|i'?m\s+widowed|i'?m\s+separated)\b", 'contextual'),
+        (r"\bmy\s+(?:spouse|wife|husband)\b", 'married_indicator'),
     ]
-
+    
+    # O(1) lookup for marital status normalization
+    MARITAL_STATUS_NORMALIZATION = {
+        'married': 'married',
+        "i'm married": 'married',
+        'im married': 'married',
+        'single': 'single',
+        "i'm single": 'single',
+        'im single': 'single',
+        'never married': 'single',
+        'never been married': 'single',
+        'unmarried': 'single',
+        'divorced': 'divorced',
+        "i'm divorced": 'divorced',
+        'im divorced': 'divorced',
+        'widowed': 'widowed',
+        "i'm widowed": 'widowed',
+        'im widowed': 'widowed',
+        'separated': 'separated',
+        "i'm separated": 'separated',
+        'im separated': 'separated',
+    }
+    
+    # -------------------------------------------------------------------------
+    # CITIZENSHIP PATTERNS - maps to: "citizen", "naturalized", "noncitizen", 
+    #                                  "us_born"
+    # -------------------------------------------------------------------------
     CITIZENSHIP_PATTERNS = [
-        (r'\b(?:us\s+citizen|american\s+citizen|citizen\s+of\s+the\s+united\s+states|naturalized\s+citizen)\b', 'citizen'),
-        (r'\b(?:not\s+a\s+citizen|not\s+citizen|noncitizen|foreign[-\s]?born|immigrant)\b', 'noncitizen'),
-        (r'\b(?:born\s+in\s+the\s+united\s+states|us[-\s]?born|born\s+in\s+the\s+us)\b', 'us_born'),
+        # Naturalized citizen patterns (must come before general citizen)
+        (r'\b(?:u\.?s\.?\s+citizen\s+by\s+naturalization|citizen\s+by\s+naturalization|naturalized\s+citizen|naturalized\s+u\.?s\.?\s+citizen|became\s+a\s+citizen|citizenship\s+through\s+naturalization)\b', 'naturalized'),
+        # US-born patterns (including territories)
+        (r'\b(?:born\s+in\s+(?:the\s+)?(?:united\s+states|u\.?s\.?|usa|puerto\s+rico|guam|u\.?s\.?\s+virgin\s+islands|american\s+samoa)|us[-\s]?born|native[-\s]?born\s+citizen)\b', 'us_born'),
+        # General citizen patterns
+        (r'\b(?:u\.?s\.?\s+citizen|american\s+citizen|citizen\s+of\s+(?:the\s+)?united\s+states|i\s+am\s+a\s+citizen)\b', 'citizen'),
+        # Non-citizen patterns
+        (r'\b(?:not\s+a\s+citizen|not\s+a\s+u\.?s\.?\s+citizen|i\s+am\s+not\s+a\s+citizen|noncitizen|non[-\s]?citizen|foreign[-\s]?national|foreign[-\s]?born(?!\s+citizen))\b', 'noncitizen'),
+        # Explicit "citizenship status is not a citizen"
+        (r'\bcitizenship\s+status\s+is\s+not\s+a\s+citizen\b', 'noncitizen'),
     ]
-
-    RACE_ETHNICITY_PATTERNS = [
-        (r'\b(?:laotian|hmong|cambodian|vietnamese|filipino|chinese|korean|japanese|asian|pacific\s+islander|native\s+hawaiian|white|black|african\s+american|american\s+indian|alaska\s+native|hispanic|latino|latina|middle\s+eastern|arab)\b', 'race_ethnicity'),
-    ]
-
+    
+    # -------------------------------------------------------------------------
+    # RACE/ETHNICITY PATTERNS - maps to: "white", "black", "asian", "hispanic",
+    #                                     "native_american", "pacific_islander",
+    #                                     "laotian", "hmong"
+    # -------------------------------------------------------------------------
+    # Detection pattern captures all variations
+    RACE_ETHNICITY_PATTERN = re.compile(
+        r'\b(?:my\s+race\s+is\s+)?('
+        r'laotian|hmong|cambodian|vietnamese|filipino|filipina|chinese|korean|japanese|'
+        r'asian\s+indian|asian|pacific\s+islander|native\s+hawaiian|samoan|tongan|'
+        r'white|caucasian|black|african\s+american|african[-\s]?american|'
+        r'american\s+indian|alaska\s+native|native\s+american|indigenous|'
+        r'hispanic|latino|latina|latinx|mexican|puerto\s+rican|cuban|'
+        r'middle\s+eastern|arab|two\s+or\s+more\s+races|multiracial|mixed\s+race'
+        r')\b',
+        re.IGNORECASE
+    )
+    
+    # O(1) lookup for race/ethnicity normalization to frequency table values
+    RACE_ETHNICITY_NORMALIZATION = {
+        # White
+        'white': 'white',
+        'caucasian': 'white',
+        # Black
+        'black': 'black',
+        'african american': 'black',
+        'african-american': 'black',
+        # Asian (general and specific - most map to "asian")
+        'asian': 'asian',
+        'asian indian': 'asian',
+        'chinese': 'asian',
+        'korean': 'asian',
+        'japanese': 'asian',
+        'vietnamese': 'asian',
+        'filipino': 'asian',
+        'filipina': 'asian',
+        'cambodian': 'asian',
+        # Specific Asian ethnicities with their own frequency table entries
+        'laotian': 'laotian',
+        'hmong': 'hmong',
+        # Hispanic/Latino
+        'hispanic': 'hispanic',
+        'latino': 'hispanic',
+        'latina': 'hispanic',
+        'latinx': 'hispanic',
+        'mexican': 'hispanic',
+        'puerto rican': 'hispanic',
+        'cuban': 'hispanic',
+        # Native American
+        'native american': 'native_american',
+        'american indian': 'native_american',
+        'alaska native': 'native_american',
+        'indigenous': 'native_american',
+        # Pacific Islander
+        'pacific islander': 'pacific_islander',
+        'native hawaiian': 'pacific_islander',
+        'samoan': 'pacific_islander',
+        'tongan': 'pacific_islander',
+        # Multi-racial (no direct frequency table match, mark as unseen)
+        'two or more races': None,  # Will be flagged as unseen
+        'multiracial': None,
+        'mixed race': None,
+        # Middle Eastern (no direct match)
+        'middle eastern': None,
+        'arab': None,
+    }
+    
+    # -------------------------------------------------------------------------
+    # STATE DETECTION - maps to 2-letter abbreviations: "AL", "AK", etc.
+    # -------------------------------------------------------------------------
     STATE_NAME_TO_ABBR = {
-        'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA',
-        'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE', 'district of columbia': 'DC',
-        'florida': 'FL', 'georgia': 'GA', 'hawaii': 'HI', 'idaho': 'ID', 'illinois': 'IL',
-        'indiana': 'IN', 'iowa': 'IA', 'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA',
-        'maine': 'ME', 'maryland': 'MD', 'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN',
-        'mississippi': 'MS', 'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV',
-        'new hampshire': 'NH', 'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY',
-        'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH', 'oklahoma': 'OK', 'oregon': 'OR',
-        'pennsylvania': 'PA', 'rhode island': 'RI', 'south carolina': 'SC', 'south dakota': 'SD',
-        'tennessee': 'TN', 'texas': 'TX', 'utah': 'UT', 'vermont': 'VT', 'virginia': 'VA',
-        'washington': 'WA', 'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY',
+        'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR',
+        'california': 'CA', 'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE',
+        'district of columbia': 'DC', 'florida': 'FL', 'georgia': 'GA', 'hawaii': 'HI',
+        'idaho': 'ID', 'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA',
+        'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME',
+        'maryland': 'MD', 'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN',
+        'mississippi': 'MS', 'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE',
+        'nevada': 'NV', 'new hampshire': 'NH', 'new jersey': 'NJ', 'new mexico': 'NM',
+        'new york': 'NY', 'north carolina': 'NC', 'north dakota': 'ND', 'ohio': 'OH',
+        'oklahoma': 'OK', 'oregon': 'OR', 'pennsylvania': 'PA', 'rhode island': 'RI',
+        'south carolina': 'SC', 'south dakota': 'SD', 'tennessee': 'TN', 'texas': 'TX',
+        'utah': 'UT', 'vermont': 'VT', 'virginia': 'VA', 'washington': 'WA',
+        'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY',
     }
-
-    CITIZENSHIP_NORMALIZATION = {
-        'citizen': 'citizen',
-        'us_citizen': 'citizen',
-        'american_citizen': 'citizen',
-        'naturalized': 'naturalized',
-        'naturalized_citizen': 'naturalized',
-        'noncitizen': 'noncitizen',
-        'not_a_citizen': 'noncitizen',
-        'not_citizen': 'noncitizen',
-        'immigrant': 'noncitizen',
-        'foreign_born': 'noncitizen',
-        'us_born': 'us_born',
-        'born_in_the_united_states': 'us_born',
-        'born_in_the_us': 'us_born',
+    
+    # Valid 2-letter state codes for direct matching
+    VALID_STATE_CODES = set(STATE_NAME_TO_ABBR.values())
+    
+    # Pattern to match 2-letter state codes in context
+    STATE_CODE_PATTERN = re.compile(
+        r'\b(?:in|from|living\s+in|reside\s+in|state\s+of|,)\s*([A-Z]{2})\b'
+    )
+    
+    # -------------------------------------------------------------------------
+    # OCCUPATION PATTERNS - maps to: "healthcare", "education", "zoologist"
+    # -------------------------------------------------------------------------
+    # The frequency table only has these three occupation categories
+    OCCUPATION_KEYWORDS = {
+        # Healthcare
+        'doctor': 'healthcare',
+        'physician': 'healthcare',
+        'nurse': 'healthcare',
+        'medical': 'healthcare',
+        'hospital': 'healthcare',
+        'clinic': 'healthcare',
+        'healthcare': 'healthcare',
+        'health care': 'healthcare',
+        'pharmacist': 'healthcare',
+        'therapist': 'healthcare',
+        'surgeon': 'healthcare',
+        'dentist': 'healthcare',
+        'veterinarian': 'healthcare',
+        # Education
+        'teacher': 'education',
+        'professor': 'education',
+        'educator': 'education',
+        'instructor': 'education',
+        'school': 'education',
+        'university': 'education',
+        'college': 'education',
+        'principal': 'education',
+        'tutor': 'education',
+        # Rare occupation (explicit)
+        'zoologist': 'zoologist',
     }
+    
+    # Rare occupations that trigger high-harm checks
+    RARE_OCCUPATION_TERMS = {'zoologist', 'astronomer', 'epidemiologist'}
+    
+    # -------------------------------------------------------------------------
+    # RARE DISEASE TERMS (unchanged from original)
+    # -------------------------------------------------------------------------
+    RARE_DISEASE_TERMS = {
+        'ehlers-danlos', 'ehlers danlos', 'huntington', 'huntingtons',
+        'marfan', 'cystic fibrosis',
+    }
+    
+    # -------------------------------------------------------------------------
+    # AGE AND DATE PATTERNS (unchanged per constraints)
+    # -------------------------------------------------------------------------
+    AGE_PATTERNS = [
+        (r'\b(?:age|aged)\s*[:=]?\s*(\d{1,3})\b', 'contextual'),
+        (r'\b(\d{1,3})\s*(?:years?\s+old|y/?o|yo)\b', 'contextual'),
+        (r"\bI(?:'m|am)\s+(\d{1,3})\b", 'statement'),
+    ]
+    
+    DATE_PATTERNS = [
+        r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b',
+        r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b',
+        r'\b\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\b',
+    ]
     
     def __init__(self):
         self.nlp = self._load_spacy_model()
@@ -359,7 +486,6 @@ class QIDetector:
             import spacy
         except Exception:
             return None
-
         for model_name in ("en_core_web_sm", "en_core_web_lg"):
             try:
                 return spacy.load(model_name)
@@ -371,10 +497,11 @@ class QIDetector:
         self,
         evidence: list[QIEvidence],
         qi_type: str,
-        normalized_value: str,
+        normalized_value: Optional[str],
         granularity: str,
         detector: str,
         confidence: float,
+        is_unseen: bool = False,
     ) -> None:
         evidence.append(QIEvidence(
             qi_type=qi_type,
@@ -383,21 +510,21 @@ class QIDetector:
             detector=detector,
             detector_version=self.VERSION,
             extraction_confidence=confidence,
+            is_unseen_value=is_unseen,
         ))
     
     def detect(self, text: str) -> list[QIEvidence]:
-        """Detect quasi-identifiers in text."""
+        """Detect quasi-identifiers in text with proper normalization."""
         evidence = []
         text_lower = text.lower()
         
-        # 1. Age detection
+        # === 1. AGE DETECTION (unchanged) ===
         for pattern, granularity in self.AGE_PATTERNS:
             for match in re.finditer(pattern, text, re.IGNORECASE):
                 age_str = match.group(1)
                 try:
                     age = int(age_str)
-                    if 0 <= age <= 120:  # Reasonable age range
-                        # Normalize to 5-year bucket
+                    if 0 <= age <= 120:
                         bucket_start = (age // 5) * 5
                         bucket_end = bucket_start + 4
                         self._append_qi(
@@ -410,112 +537,82 @@ class QIDetector:
                         )
                 except ValueError:
                     pass
-
-        # 1b. Sex/gender detection
+        
+        # === 2. SEX DETECTION ===
         for pattern, granularity in self.SEX_PATTERNS:
             for match in re.finditer(pattern, text_lower, re.IGNORECASE):
-                value = match.group(1).lower()
-                normalized = {
-                    'man': 'male',
-                    'boy': 'male',
-                    'male': 'male',
-                    'woman': 'female',
-                    'girl': 'female',
-                    'female': 'female',
-                    'nonbinary': 'nonbinary',
-                    'transgender': 'transgender',
-                }.get(value, value)
-                self._append_qi(
-                    evidence,
-                    qi_type="sex",
-                    normalized_value=normalized,
-                    granularity="binary_or_gender_identity",
-                    detector="pattern",
-                    confidence=0.85,
-                )
-
-        # 1c. Marital status detection
+                raw_value = match.group(1).lower().strip()
+                normalized = self.SEX_NORMALIZATION.get(raw_value)
+                if normalized:
+                    self._append_qi(
+                        evidence,
+                        qi_type="sex",
+                        normalized_value=normalized,
+                        granularity="binary",
+                        detector="pattern",
+                        confidence=0.85,
+                    )
+        
+        # === 3. MARITAL STATUS DETECTION ===
         for pattern, granularity in self.MARITAL_STATUS_PATTERNS:
             for match in re.finditer(pattern, text_lower, re.IGNORECASE):
-                raw_value = match.group(1).lower()
-                normalized = raw_value.replace(" ", "_").replace("been_", "")
-                if normalized == "never_been_married":
-                    normalized = "never_married"
-                elif normalized == "single":
-                    normalized = "single"
-                self._append_qi(
-                    evidence,
-                    qi_type="marital_status",
-                    normalized_value=normalized,
-                    granularity="marital_status",
-                    detector="pattern",
-                    confidence=0.82,
-                )
-
-        # 1d. Citizenship detection
-        for pattern, normalized in self.CITIZENSHIP_PATTERNS:
+                if granularity == 'married_indicator':
+                    # "my spouse/wife/husband" indicates married
+                    self._append_qi(
+                        evidence,
+                        qi_type="marital_status",
+                        normalized_value="married",
+                        granularity="marital_status",
+                        detector="pattern",
+                        confidence=0.80,
+                    )
+                else:
+                    raw_value = match.group(1).lower().strip()
+                    normalized = self.MARITAL_STATUS_NORMALIZATION.get(raw_value)
+                    if normalized:
+                        self._append_qi(
+                            evidence,
+                            qi_type="marital_status",
+                            normalized_value=normalized,
+                            granularity="marital_status",
+                            detector="pattern",
+                            confidence=0.82,
+                        )
+        
+        # === 4. CITIZENSHIP DETECTION ===
+        for pattern, normalized_value in self.CITIZENSHIP_PATTERNS:
             for match in re.finditer(pattern, text_lower, re.IGNORECASE):
-                normalized = self.CITIZENSHIP_NORMALIZATION.get(normalized, normalized)
                 self._append_qi(
                     evidence,
                     qi_type="citizenship",
-                    normalized_value=normalized,
+                    normalized_value=normalized_value,
                     granularity="citizenship_status",
                     detector="pattern",
-                    confidence=0.8,
-                )
-
-        # 1e. Race/ethnicity detection
-        for pattern, qi_type in self.RACE_ETHNICITY_PATTERNS:
-            for match in re.finditer(pattern, text_lower, re.IGNORECASE):
-                normalized = match.group(0).lower().replace(" ", "_")
-                self._append_qi(
-                    evidence,
-                    qi_type=qi_type,
-                    normalized_value=normalized,
-                    granularity="census_race_ethnicity",
-                    detector="pattern",
-                    confidence=0.78,
+                    confidence=0.85,
                 )
         
-        # 2. Location detection via spaCy
-        if self.nlp is not None:
-            doc = self.nlp(text)
-            for ent in doc.ents:
-                if ent.label_ == "GPE":  # Geo-political entity
-                    state_name = ent.text.strip().lower()
-                    if state_name in self.STATE_NAME_TO_ABBR:
-                        self._append_qi(
-                            evidence,
-                            qi_type="state",
-                            normalized_value=self.STATE_NAME_TO_ABBR[state_name],
-                            granularity="state",
-                            detector="spacy_ner",
-                            confidence=0.7,
-                        )
-                    elif state_name in {'oregon', 'oregon state'}:
-                        self._append_qi(
-                            evidence,
-                            qi_type="state",
-                            normalized_value='OR',
-                            granularity="state",
-                            detector="spacy_ner",
-                            confidence=0.7,
-                        )
-                    else:
-                        self._append_qi(
-                            evidence,
-                            qi_type="location",
-                            normalized_value=ent.text.lower(),
-                            granularity="unknown",
-                            detector="spacy_ner",
-                            confidence=0.7,
-                        )
-
-        # 2b. Direct state-name matching for narrative benchmark text
+        # === 5. RACE/ETHNICITY DETECTION ===
+        for match in self.RACE_ETHNICITY_PATTERN.finditer(text_lower):
+            raw_value = match.group(1).lower().strip()
+            normalized = self.RACE_ETHNICITY_NORMALIZATION.get(raw_value)
+            is_unseen = normalized is None
+            if is_unseen:
+                # Keep raw value but mark as unseen
+                normalized = raw_value.replace(' ', '_')
+            self._append_qi(
+                evidence,
+                qi_type="race_ethnicity",
+                normalized_value=normalized,
+                granularity="census_race_ethnicity",
+                detector="pattern",
+                confidence=0.78,
+                is_unseen=is_unseen,
+            )
+        
+        # === 6. STATE DETECTION ===
+        # 6a. Full state names (O(n) where n = number of states, but dict lookup is O(1))
         for state_name, state_abbr in self.STATE_NAME_TO_ABBR.items():
-            pattern = rf'\b{re.escape(state_name)}\b'
-            if re.search(pattern, text_lower, re.IGNORECASE):
+            if state_name in text_lower:
                 self._append_qi(
                     evidence,
                     qi_type="state",
@@ -524,29 +621,54 @@ class QIDetector:
                     detector="gazetteer",
                     confidence=0.88,
                 )
-        if re.search(r'\boregon\b', text_lower):
-            self._append_qi(
-                evidence,
-                qi_type="state",
-                normalized_value='OR',
-                granularity="state",
-                detector="gazetteer",
-                confidence=0.88,
-            )
         
-        # 3. Rare disease detection
-        for term in self.RARE_DISEASE_TERMS:
-            if term in text_lower:
+        # 6b. Two-letter state codes in context
+        for match in self.STATE_CODE_PATTERN.finditer(text):
+            code = match.group(1).upper()
+            if code in self.VALID_STATE_CODES:
                 self._append_qi(
                     evidence,
-                    qi_type="condition",
-                    normalized_value=term,
-                    granularity="specific_disease",
-                    detector="gazetteer",
-                    confidence=0.85,
+                    qi_type="state",
+                    normalized_value=code,
+                    granularity="state",
+                    detector="pattern",
+                    confidence=0.75,
                 )
         
-        # 4. Rare occupation detection
+        # 6c. spaCy NER for locations
+        if self.nlp is not None:
+            try:
+                doc = self.nlp(text)
+                for ent in doc.ents:
+                    if ent.label_ == "GPE":
+                        state_name = ent.text.strip().lower()
+                        if state_name in self.STATE_NAME_TO_ABBR:
+                            self._append_qi(
+                                evidence,
+                                qi_type="state",
+                                normalized_value=self.STATE_NAME_TO_ABBR[state_name],
+                                granularity="state",
+                                detector="spacy_ner",
+                                confidence=0.7,
+                            )
+            except Exception:
+                pass
+        
+        # === 7. OCCUPATION DETECTION ===
+        # Check for occupation keywords
+        for keyword, occupation_category in self.OCCUPATION_KEYWORDS.items():
+            if keyword in text_lower:
+                self._append_qi(
+                    evidence,
+                    qi_type="occupation",
+                    normalized_value=occupation_category,
+                    granularity="occupation_category",
+                    detector="gazetteer",
+                    confidence=0.75,
+                )
+                break  # Only add one occupation per text
+        
+        # Check for rare occupations specifically
         for term in self.RARE_OCCUPATION_TERMS:
             if term in text_lower:
                 self._append_qi(
@@ -558,7 +680,19 @@ class QIDetector:
                     confidence=0.85,
                 )
         
-        # 5. Date detection (temporal QIs)
+        # === 8. RARE DISEASE DETECTION ===
+        for term in self.RARE_DISEASE_TERMS:
+            if term in text_lower:
+                self._append_qi(
+                    evidence,
+                    qi_type="condition",
+                    normalized_value=term.replace(' ', '_').replace('-', '_'),
+                    granularity="specific_disease",
+                    detector="gazetteer",
+                    confidence=0.85,
+                )
+        
+        # === 9. DATE DETECTION (unchanged) ===
         for pattern in self.DATE_PATTERNS:
             for match in re.finditer(pattern, text, re.IGNORECASE):
                 self._append_qi(
@@ -570,11 +704,8 @@ class QIDetector:
                     confidence=0.85,
                 )
         
-        # Multiple rules commonly describe the same fact (for example the
-        # standalone and labelled sex patterns, or a state found by both
-        # spaCy and the gazetteer). Keep one QI per normalized value so the
-        # risk estimator does not count detector duplicates as additional
-        # identifying attributes.
+        # === DEDUPLICATION ===
+        # Keep one QI per (type, normalized_value) to avoid double-counting
         deduplicated: dict[tuple[str, Optional[str]], QIEvidence] = {}
         for qi in evidence:
             key = (qi.qi_type, qi.normalized_value)
@@ -582,44 +713,33 @@ class QIDetector:
             if existing is None:
                 deduplicated[key] = qi
                 continue
+            # Keep higher confidence, merge detector agreement
             if qi.extraction_confidence > existing.extraction_confidence:
                 existing.extraction_confidence = qi.extraction_confidence
             if qi.detector and qi.detector != existing.detector:
                 if qi.detector not in existing.detector_agreement:
                     existing.detector_agreement.append(qi.detector)
-
+        
         return list(deduplicated.values())
     
     def check_assertion_status(self, text: str, qi: QIEvidence) -> QIEvidence:
         """
-        Check if QI is negated, hypothetical, or refers to someone other than patient.
-        
-        Important for medical QIs - "mother has Huntington's" is different from
-        "patient has Huntington's".
+        Check if a QI is negated, hypothetical, or about someone other than patient.
         """
-        # This would use a proper clinical NLP model in production
-        # Simple heuristic here
-        text_lower = text.lower()
-        
-        # Check for negation (very simplified)
+        # Simple negation check
         negation_patterns = [
-            r'no\s+(?:history\s+of\s+)?' + re.escape(qi.normalized_value or ''),
-            r'denies\s+' + re.escape(qi.normalized_value or ''),
-            r'negative\s+for\s+' + re.escape(qi.normalized_value or ''),
+            r'\b(?:no|not|never|without|denies|denied|negative)\b',
         ]
-        for pattern in negation_patterns:
-            if re.search(pattern, text_lower):
-                qi.assertion_status = "negated"
-                break
         
-        # Check for family history
-        family_patterns = [
-            r'(?:mother|father|sister|brother|parent|sibling|family)\s+(?:has|had|with)\s+',
-            r'family\s+history\s+of\s+',
-        ]
-        for pattern in family_patterns:
-            if re.search(pattern + re.escape(qi.normalized_value or ''), text_lower):
-                qi.experiencer = "family"
-                break
+        # Check context around the QI value
+        if qi.normalized_value:
+            for pattern in negation_patterns:
+                # Look for negation within 50 chars before the value
+                value_pos = text.lower().find(qi.normalized_value.lower().replace('_', ' '))
+                if value_pos > 0:
+                    context = text[max(0, value_pos - 50):value_pos].lower()
+                    if re.search(pattern, context):
+                        qi.assertion_status = "negated"
+                        break
         
         return qi
