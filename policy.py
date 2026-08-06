@@ -73,7 +73,7 @@ class PolicyProfile:
     # Direct identifiers - always mask, regardless of other factors
     direct_identifier_types: FrozenSet[str] = frozenset({
         "US_SSN", "US_PASSPORT", "US_DRIVER_LICENSE", "MEDICAL_RECORD_NUMBER",
-        "US_ITIN", "CREDIT_CARD", "US_BANK_NUMBER", "HEALTH_PLAN_ID",
+        "US_ITIN", "CREDIT_CARD", "US_BANK_NUMBER", "HEALTH_PLAN_ID", "DATE", "TIME"
     })
     
     # Cloud processing permissions
