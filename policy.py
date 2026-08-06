@@ -5,7 +5,6 @@ A policy profile explicitly defines:
 - What population is being protected
 - What auxiliary data an attacker might have
 - Minimum acceptable k-anonymity threshold
-- High-harm categories requiring automatic local processing
 - Acceptable false-cloud-release rate
 """
 
@@ -60,15 +59,6 @@ class PolicyProfile:
     # k-anonymity requirements
     k_minimum: int = 5  # Minimum acceptable equivalence class size
     k_safe_threshold: int = 20  # Above this, don't invoke contextual analysis
-    
-    # High-harm categories - always route to Tier 3
-    high_harm_categories: FrozenSet[HarmCategory] = frozenset({
-        HarmCategory.PSYCHIATRIC,
-        HarmCategory.SUBSTANCE_USE,
-        HarmCategory.REPRODUCTIVE,
-        HarmCategory.GENETIC,
-        HarmCategory.HIV_STI,
-    })
     
     # Direct identifiers - always mask, regardless of other factors
     direct_identifier_types: FrozenSet[str] = frozenset({
@@ -208,7 +198,6 @@ class RoutingDecision:
     
     # Risk summary (for logging, not for decision-making)
     estimated_k_lower: Optional[float] = None
-    high_harm_detected: bool = False
     direct_identifiers_found: int = 0
     qis_found: int = 0
     
