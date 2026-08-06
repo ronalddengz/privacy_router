@@ -1,0 +1,5 @@
+.env
+.venv/
+frequency_data.db
+frequency_tables.db
+__pycahche__/
