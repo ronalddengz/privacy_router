@@ -98,10 +98,7 @@ class PrivacyRouter:
         
         # === Stage 4: Joint Risk Estimation ===
         risk_estimate = self.risk_estimator.estimate(qi_evidence, self.policy)
-        
-        # === Stage 5: Check High-Harm Categories ===
-        high_harm = self.risk_estimator.check_high_harm_qis(qi_evidence, self.policy)
-        
+
         # === Stage 6: Deterministic Hard Stops ===
         hard_stops = []
         
@@ -112,11 +109,6 @@ class PrivacyRouter:
         ]
         if unmasked_direct:
             hard_stops.append(f"Unmasked direct identifiers: {len(unmasked_direct)}")
-        
-        # High-harm category
-        if high_harm:
-            categories = [str(h[1].value) for h in high_harm]
-            hard_stops.append(f"High-harm categories: {', '.join(categories)}")
         
         # k below minimum with high confidence
         if risk_estimate.estimate_available and risk_estimate.lower_bound_k is not None:
@@ -141,7 +133,6 @@ class PrivacyRouter:
                 policy_version=self.policy.version,
                 hard_stop_reasons=hard_stops,
                 estimated_k_lower=risk_estimate.lower_bound_k,
-                high_harm_detected=bool(high_harm),
                 direct_identifiers_found=len([
                     e for e in pii_evidence 
                     if e.category == EntityCategory.DIRECT_IDENTIFIER
@@ -233,7 +224,6 @@ class PrivacyRouter:
             uncertainty_flags=uncertainty_flags,
             contextual_review_invoked=contextual_evidence is not None,
             estimated_k_lower=risk_estimate.lower_bound_k,
-            high_harm_detected=bool(high_harm),
             direct_identifiers_found=len([
                 e for e in pii_evidence 
                 if e.category == EntityCategory.DIRECT_IDENTIFIER

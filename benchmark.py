@@ -144,7 +144,6 @@ class RevisedPipelineResult:
     # Detection counts
     direct_identifier_count: int
     quasi_identifier_count: int
-    high_harm_categories: List[str]
     
     # LLM usage
     llm_invoked: bool
@@ -457,14 +456,6 @@ class RevisedBenchmarkPipeline:
             reference_population="hospital_2024",
             k_minimum=self.k_minimum,
             k_safe_threshold=20,
-            high_harm_categories={
-                HarmCategory.PSYCHIATRIC,
-                HarmCategory.SUBSTANCE_USE,
-                HarmCategory.REPRODUCTIVE,
-                HarmCategory.GENETIC,
-                HarmCategory.HIV_STI,
-                HarmCategory.RARE_DISEASE,
-            },
             cloud_allows_phi=False,
             cloud_allows_masked_phi=True,
             require_joint_estimate=False,
@@ -483,7 +474,6 @@ class RevisedBenchmarkPipeline:
             reference_population=self.router.policy.reference_population,
             k_minimum=k,
             k_safe_threshold=self.router.policy.k_safe_threshold,
-            high_harm_categories=self.router.policy.high_harm_categories,
             cloud_allows_phi=self.router.policy.cloud_allows_phi,
             cloud_allows_masked_phi=self.router.policy.cloud_allows_masked_phi,
             require_joint_estimate=self.router.policy.require_joint_estimate,
@@ -528,11 +518,6 @@ class RevisedBenchmarkPipeline:
         # Extract evidence details
         pii_count = len(result.pii_evidence) if result.pii_evidence else 0
         qi_count = len(result.qi_evidence) if result.qi_evidence else 0
-        
-        high_harm_cats = [
-            cat.value
-            for _, cat in self.router.risk_estimator.check_high_harm_qis(result.qi_evidence, self.router.policy)
-        ]
         
         # Gate info
         if result.decision.contextual_review_invoked:
@@ -579,7 +564,6 @@ class RevisedBenchmarkPipeline:
             
             direct_identifier_count=pii_count,
             quasi_identifier_count=qi_count,
-            high_harm_categories=high_harm_cats,
             
             llm_invoked=llm_invoked,
             llm_decision=llm_decision,
@@ -733,7 +717,6 @@ def analyze_results(results: List[RevisedPipelineResult]) -> BenchmarkAnalysis:
         "k_lower": safe_corr(expected, np.array([r.k_lower for r in results])),
         "direct_id_count": safe_corr(expected, np.array([r.direct_identifier_count for r in results])),
         "qi_count": safe_corr(expected, np.array([r.quasi_identifier_count for r in results])),
-        "high_harm_count": safe_corr(expected, np.array([len(r.high_harm_categories) for r in results])),
         "masking_ratio": safe_corr(expected, np.array([r.masking_ratio for r in results])),
     }
     
