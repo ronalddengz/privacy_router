@@ -157,14 +157,6 @@ class ContextualGate:
             # Note: In practice, these would be masked, but if masking fails...
             reasons.append(f"Found {features.direct_identifier_count} direct identifier(s)")
         
-        # High-harm categories
-        if features.has_rare_disease:
-            reasons.append("Rare disease detected - high harm category")
-            return GateDecision.UNSAFE_ROUTE_LOCAL, reasons
-        
-        if features.has_rare_occupation:
-            reasons.append("Rare occupation detected - potential unique identifier")
-        
         # k-anonymity failure. A lower bound below the policy minimum is
         # already sufficient evidence that the record is unsafe. This must
         # not be delegated to a probabilistic/contextual model: the model

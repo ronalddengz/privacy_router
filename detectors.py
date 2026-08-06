@@ -113,8 +113,6 @@ class PIIDetector:
         """Categorize entity type for policy routing."""
         if entity_type in policy.direct_identifier_types:
             return EntityCategory.DIRECT_IDENTIFIER
-        elif entity_type in {"PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER"}:
-            return EntityCategory.STRONG_IDENTIFIER
         elif entity_type in {"LOCATION", "DATE_TIME", "ORGANIZATION"}:
             return EntityCategory.CONTEXTUAL
         else:
