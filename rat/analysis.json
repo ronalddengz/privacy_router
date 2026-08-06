@@ -1,16 +1,16 @@
 {
-  "total_samples": 300,
+  "total_samples": 30,
   "tier_1_count": 0,
-  "tier_2_count": 57,
-  "tier_3_count": 243,
+  "tier_2_count": 3,
+  "tier_3_count": 27,
   "tier_1_pct": 0.0,
-  "tier_2_pct": 19.0,
-  "tier_3_pct": 81.0,
-  "false_cloud_release_count": 57,
-  "false_cloud_release_rate": 19.0,
+  "tier_2_pct": 10.0,
+  "tier_3_pct": 90.0,
+  "false_cloud_release_count": 3,
+  "false_cloud_release_rate": 10.0,
   "over_censoring_count": 0,
   "over_censoring_rate": 0.0,
-  "llm_invocation_count": 300,
+  "llm_invocation_count": 30,
   "llm_invocation_rate": 100.0,
   "mean_k_lower": 0.0,
   "median_k_lower": 0.0,
@@ -19,18 +19,17 @@
     "TIER_2": 0.0,
     "TIER_3": 0.0
   },
-  "mean_total_time": 5.154594846566519,
-  "mean_llm_time": 4.861248066666667,
+  "mean_total_time": 4.261519527435302,
+  "mean_llm_time": 4.005617933333332,
   "correlations": {
     "k_lower": 0.0,
     "direct_id_count": 0.0,
     "qi_count": 0.0,
-    "high_harm_count": 0.0,
     "masking_ratio": 0.0
   },
-  "optimal_k_knee": 15,
-  "optimal_k_efficiency": 10,
+  "optimal_k_knee": 5,
+  "optimal_k_efficiency": 15,
   "optimal_k_pareto": [
-    10
+    15
   ]
 }
