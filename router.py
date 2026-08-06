@@ -161,9 +161,10 @@ class PrivacyRouter:
         # not establish an intersection; it is not an observed equivalence
         # class of size zero. Let contextual analysis resolve that uncertainty
         # when the gate has marked this specific case unsafe.
+        bound_based_methods = {"conservative_bound", "pairwise_min_bound", "min_marginal_bound"}
         if (
             gate_decision == GateDecision.UNSAFE_ROUTE_LOCAL
-            and risk_estimate.method == "conservative_bound"
+            and risk_estimate.method in bound_based_methods
             and risk_estimate.lower_bound_k is not None
             and risk_estimate.lower_bound_k < self.policy.k_minimum
         ):

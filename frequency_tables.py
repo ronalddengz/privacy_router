@@ -205,6 +205,140 @@ class LocalFrequencyTable:
             is_exact_match=False,
             population_size=pop_size
         )
+    
+    def estimate_joint_min_marginal(self, population_id: str, qi_values: dict) -> FrequencyResult:
+        """
+        Estimate joint frequency using the minimum marginal (Fréchet upper bound).
+        
+        This is mathematically defensible: P(A ∩ B ∩ C ...) ≤ min(P(A), P(B), P(C), ...)
+        
+        The minimum marginal gives an UPPER bound on the joint probability, which
+        translates to an UPPER bound on k. This may overestimate privacy (suggest
+        more people share this combination than actually do), so it should be
+        paired with contextual analysis for uncertain cases.
+        
+        Key properties:
+        - Always non-zero when all marginals exist
+        - Mathematically valid (Fréchet upper bound)
+        - Conservative for utility (may release more than optimal)
+        - Should be flagged for contextual review when used
+        """
+        pop_info = self.get_population_info(population_id)
+        if not pop_info:
+            return FrequencyResult(is_available=False)
+        
+        pop_size = pop_info['total_size']
+        marginal_probs = []
+        marginal_details = []  # For debugging/logging
+        
+        for qi_type, qi_value in qi_values.items():
+            marginal = self.lookup_marginal(population_id, qi_type, qi_value)
+            if not marginal.is_available:
+                return FrequencyResult(is_available=False)
+            
+            # Use the frequency (point estimate) for min-marginal
+            prob = marginal.frequency if marginal.frequency is not None else 0.0
+            marginal_probs.append(prob)
+            marginal_details.append((qi_type, qi_value, prob))
+        
+        if not marginal_probs or pop_size == 0:
+            return FrequencyResult(is_available=False)
+        
+        # Min-marginal bound (Fréchet upper bound on joint probability)
+        min_marginal_prob = min(marginal_probs)
+        
+        # The k estimate is this probability times population size
+        # This is an UPPER bound on k (optimistic for privacy)
+        k_upper_bound = min_marginal_prob * pop_size
+        
+        # For the lower bound, we use a heuristic: assume some positive
+        # correlation exists. A common conservative approach is to use
+        # the product of marginals as a rough lower bound (independence),
+        # but flag it explicitly.
+        # 
+        # However, to avoid the independence assumption, we set lower_bound
+        # to a small fraction of the upper bound as a placeholder.
+        # The router will flag this method for contextual review.
+        k_lower_heuristic = max(1.0, k_upper_bound * 0.01)  # 1% of upper, min 1
+        
+        return FrequencyResult(
+            count=None,
+            frequency=min_marginal_prob,
+            lower_bound=k_lower_heuristic,
+            upper_bound=k_upper_bound,
+            source=population_id,
+            vintage=pop_info.get('vintage', ''),
+            is_available=True,
+            is_exact_match=False,
+            population_size=pop_size,
+        )
+
+    def estimate_joint_pairwise_min(self, population_id: str, qi_values: dict) -> FrequencyResult:
+        """
+        Estimate joint frequency using minimum observed pairwise joint.
+        
+        If we have joint tables for pairs (A,B), (A,C), (B,C), etc., the
+        joint P(A ∩ B ∩ C) ≤ min(P(A,B), P(A,C), P(B,C)).
+        
+        This is tighter than min-marginal when pairwise data exists.
+        
+        Returns unavailable if no pairwise joints are found.
+        """
+        pop_info = self.get_population_info(population_id)
+        if not pop_info:
+            return FrequencyResult(is_available=False)
+        
+        pop_size = pop_info['total_size']
+        qi_items = list(qi_values.items())
+        
+        if len(qi_items) < 2:
+            # Single QI - just use marginal lookup
+            if len(qi_items) == 1:
+                qi_type, qi_value = qi_items[0]
+                return self.lookup_marginal(population_id, qi_type, qi_value)
+            return FrequencyResult(is_available=False)
+        
+        # Check all pairs
+        pairwise_probs = []
+        pairs_found = 0
+        
+        for i in range(len(qi_items)):
+            for j in range(i + 1, len(qi_items)):
+                qi_type_a, qi_value_a = qi_items[i]
+                qi_type_b, qi_value_b = qi_items[j]
+                
+                pair_values = {qi_type_a: qi_value_a, qi_type_b: qi_value_b}
+                pair_result = self.lookup_joint(population_id, pair_values)
+                
+                if pair_result.is_available and pair_result.is_exact_match:
+                    pairs_found += 1
+                    if pair_result.frequency is not None:
+                        pairwise_probs.append(pair_result.frequency)
+                    elif pair_result.count is not None and pop_size > 0:
+                        pairwise_probs.append(pair_result.count / pop_size)
+        
+        if not pairwise_probs:
+            # No pairwise joints found
+            return FrequencyResult(is_available=False)
+        
+        # Minimum pairwise joint gives upper bound on full joint
+        min_pairwise_prob = min(pairwise_probs)
+        k_upper_bound = min_pairwise_prob * pop_size
+        
+        # Heuristic lower bound (similar rationale as min-marginal)
+        k_lower_heuristic = max(1.0, k_upper_bound * 0.05)  # 5% of upper, min 1
+        
+        return FrequencyResult(
+            count=None,
+            frequency=min_pairwise_prob,
+            lower_bound=k_lower_heuristic,
+            upper_bound=k_upper_bound,
+            source=population_id,
+            vintage=pop_info.get('vintage', ''),
+            is_available=True,
+            is_exact_match=False,
+            population_size=pop_size,
+        )
 
 
 def create_sample_frequency_table(db_path: Path):

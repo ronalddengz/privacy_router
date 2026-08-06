@@ -1,20 +1,20 @@
 [
   {
-    "sample_name": "RAT-11 (difficulty=1, Meeting transcript)",
+    "sample_name": "RAT-0 (difficulty=1, Medical consultation)",
     "expected_critical": true,
     "tier": 3,
     "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 9.467227,
-    "masking_ratio": 0.001243,
+    "total_time_seconds": 8.598173,
+    "masking_ratio": 0.007768,
     "k_lower": 0.0
   },
   {
-    "sample_name": "RAT-8 (difficulty=1, Meeting transcript)",
+    "sample_name": "RAT-10 (difficulty=1, Chatbot conversation)",
     "expected_critical": true,
     "tier": 3,
     "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 5.694645,
-    "masking_ratio": 0.007237,
+    "total_time_seconds": 5.470884,
+    "masking_ratio": 0.013076,
     "k_lower": 0.0
   },
   {
@@ -22,197 +22,8 @@
     "expected_critical": true,
     "tier": 3,
     "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 5.543288,
+    "total_time_seconds": 5.364152,
     "masking_ratio": 0.003789,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-29 (difficulty=1, Medical consultation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 5.403648,
-    "masking_ratio": 0.017622,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-4 (difficulty=1, Medical consultation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 5.329624,
-    "masking_ratio": 0.009647,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-20 (difficulty=1, Chatbot conversation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 5.163729,
-    "masking_ratio": 0.023277,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-3 (difficulty=1, Meeting transcript)",
-    "expected_critical": true,
-    "tier": 2,
-    "tier_name": "TIER_2_CLOUD_MASKED",
-    "total_time_seconds": 4.936004,
-    "masking_ratio": 0.008108,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-5 (difficulty=1, Meeting transcript)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 4.615231,
-    "masking_ratio": 0.012216,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-6 (difficulty=1, Meeting transcript)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 4.515359,
-    "masking_ratio": 0.002086,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-22 (difficulty=1, Medical consultation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 4.397734,
-    "masking_ratio": 0.004575,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-2 (difficulty=1, Medical consultation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 4.282444,
-    "masking_ratio": 0.01513,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-25 (difficulty=1, Meeting transcript)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 4.1109,
-    "masking_ratio": 0.008475,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-17 (difficulty=1, Chatbot conversation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 4.092418,
-    "masking_ratio": 0.00676,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-12 (difficulty=1, Chatbot conversation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.841561,
-    "masking_ratio": 0.004942,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-21 (difficulty=1, Chatbot conversation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.798023,
-    "masking_ratio": 0.004295,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-27 (difficulty=1, Chatbot conversation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.720059,
-    "masking_ratio": 0.002736,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-16 (difficulty=1, Chatbot conversation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.672427,
-    "masking_ratio": 0.004481,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-13 (difficulty=1, Chatbot conversation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.655416,
-    "masking_ratio": 0.007416,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-26 (difficulty=1, Chatbot conversation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.636836,
-    "masking_ratio": 0.009204,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-23 (difficulty=1, Chatbot conversation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.63598,
-    "masking_ratio": 0.001416,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-19 (difficulty=1, Chatbot conversation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.612039,
-    "masking_ratio": 0.00058,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-15 (difficulty=1, Chatbot conversation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.591181,
-    "masking_ratio": 0.012465,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-0 (difficulty=1, Medical consultation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.59014,
-    "masking_ratio": 0.007768,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-18 (difficulty=1, Chatbot conversation)",
-    "expected_critical": true,
-    "tier": 3,
-    "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.548684,
-    "masking_ratio": -0.000168,
     "k_lower": 0.0
   },
   {
@@ -220,26 +31,80 @@
     "expected_critical": true,
     "tier": 3,
     "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.517251,
+    "total_time_seconds": 5.144781,
     "masking_ratio": 0.003985,
     "k_lower": 0.0
   },
   {
-    "sample_name": "RAT-28 (difficulty=1, Medical consultation)",
+    "sample_name": "RAT-8 (difficulty=1, Meeting transcript)",
     "expected_critical": true,
     "tier": 3,
     "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.50832,
-    "masking_ratio": 0.015427,
+    "total_time_seconds": 4.995233,
+    "masking_ratio": 0.007237,
     "k_lower": 0.0
   },
   {
-    "sample_name": "RAT-24 (difficulty=1, Meeting transcript)",
+    "sample_name": "RAT-5 (difficulty=1, Meeting transcript)",
     "expected_critical": true,
     "tier": 3,
     "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.481552,
-    "masking_ratio": 0.007619,
+    "total_time_seconds": 4.950567,
+    "masking_ratio": 0.012216,
+    "k_lower": 0.0
+  },
+  {
+    "sample_name": "RAT-3 (difficulty=1, Meeting transcript)",
+    "expected_critical": true,
+    "tier": 3,
+    "tier_name": "TIER_3_LOCAL",
+    "total_time_seconds": 4.86122,
+    "masking_ratio": 0.008108,
+    "k_lower": 0.0
+  },
+  {
+    "sample_name": "RAT-4 (difficulty=1, Medical consultation)",
+    "expected_critical": true,
+    "tier": 3,
+    "tier_name": "TIER_3_LOCAL",
+    "total_time_seconds": 4.100412,
+    "masking_ratio": 0.009647,
+    "k_lower": 0.0
+  },
+  {
+    "sample_name": "RAT-12 (difficulty=1, Chatbot conversation)",
+    "expected_critical": true,
+    "tier": 3,
+    "tier_name": "TIER_3_LOCAL",
+    "total_time_seconds": 3.827153,
+    "masking_ratio": 0.004942,
+    "k_lower": 0.0
+  },
+  {
+    "sample_name": "RAT-13 (difficulty=1, Chatbot conversation)",
+    "expected_critical": true,
+    "tier": 3,
+    "tier_name": "TIER_3_LOCAL",
+    "total_time_seconds": 3.676501,
+    "masking_ratio": 0.007416,
+    "k_lower": 0.0
+  },
+  {
+    "sample_name": "RAT-11 (difficulty=1, Meeting transcript)",
+    "expected_critical": true,
+    "tier": 3,
+    "tier_name": "TIER_3_LOCAL",
+    "total_time_seconds": 3.668194,
+    "masking_ratio": 0.001243,
+    "k_lower": 3.296443
+  },
+  {
+    "sample_name": "RAT-6 (difficulty=1, Meeting transcript)",
+    "expected_critical": true,
+    "tier": 3,
+    "tier_name": "TIER_3_LOCAL",
+    "total_time_seconds": 3.566922,
+    "masking_ratio": 0.002086,
     "k_lower": 0.0
   },
   {
@@ -247,17 +112,8 @@
     "expected_critical": true,
     "tier": 3,
     "tier_name": "TIER_3_LOCAL",
-    "total_time_seconds": 3.401645,
+    "total_time_seconds": 3.456199,
     "masking_ratio": 0.00436,
-    "k_lower": 0.0
-  },
-  {
-    "sample_name": "RAT-10 (difficulty=1, Chatbot conversation)",
-    "expected_critical": true,
-    "tier": 2,
-    "tier_name": "TIER_2_CLOUD_MASKED",
-    "total_time_seconds": 3.36047,
-    "masking_ratio": 0.013076,
     "k_lower": 0.0
   },
   {
@@ -265,8 +121,17 @@
     "expected_critical": true,
     "tier": 2,
     "tier_name": "TIER_2_CLOUD_MASKED",
-    "total_time_seconds": 2.721751,
+    "total_time_seconds": 3.32392,
     "masking_ratio": 0.001541,
+    "k_lower": 0.0
+  },
+  {
+    "sample_name": "RAT-2 (difficulty=1, Medical consultation)",
+    "expected_critical": true,
+    "tier": 2,
+    "tier_name": "TIER_2_CLOUD_MASKED",
+    "total_time_seconds": 2.823084,
+    "masking_ratio": 0.01513,
     "k_lower": 0.0
   }
 ]

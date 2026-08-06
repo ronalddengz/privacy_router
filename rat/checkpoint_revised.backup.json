@@ -1,8 +1,8 @@
 {
   "input_file_hash": "b416898ad1ff54d255c752b29e811a94",
   "k_minimum": 5,
-  "total_samples": 30,
-  "processed_count": 30,
+  "total_samples": 15,
+  "processed_count": 15,
   "results": [
     {
       "sample_name": "RAT-0 (difficulty=1, Medical consultation)",
@@ -28,19 +28,19 @@
       "uncertainty_flags": [
         "k_estimate_unavailable"
       ],
-      "total_time": 3.590139865875244,
-      "detection_time": 1.077041959762573,
-      "risk_estimation_time": 0.7180279731750489,
-      "gate_time": 0.3590139865875244,
-      "llm_time": 2.882424,
+      "total_time": 8.598173379898071,
+      "detection_time": 2.5794520139694215,
+      "risk_estimation_time": 1.7196346759796144,
+      "gate_time": 0.8598173379898072,
+      "llm_time": 8.124748,
       "tiers_by_k": {
         "2": 3,
-        "5": 3,
+        "5": 2,
         "10": 3,
-        "15": 3,
+        "15": 2,
         "20": 3,
         "50": 3,
-        "100": 3
+        "100": 2
       },
       "k_lowers_by_k": {
         "2": 0.0,
@@ -51,7 +51,7 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:28:46.841040"
+      "processed_at": "2026-08-06T19:20:55.934701"
     },
     {
       "sample_name": "RAT-1 (difficulty=1, Chatbot conversation)",
@@ -77,18 +77,18 @@
       "uncertainty_flags": [
         "k_estimate_unavailable"
       ],
-      "total_time": 3.5172507762908936,
-      "detection_time": 1.055175232887268,
-      "risk_estimation_time": 0.7034501552581788,
-      "gate_time": 0.3517250776290894,
-      "llm_time": 3.236562,
+      "total_time": 5.144781112670898,
+      "detection_time": 1.5434343338012695,
+      "risk_estimation_time": 1.0289562225341797,
+      "gate_time": 0.5144781112670899,
+      "llm_time": 4.859044,
       "tiers_by_k": {
         "2": 3,
         "5": 3,
         "10": 2,
-        "15": 2,
-        "20": 3,
-        "50": 3,
+        "15": 3,
+        "20": 2,
+        "50": 2,
         "100": 3
       },
       "k_lowers_by_k": {
@@ -100,14 +100,14 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:29:17.347913"
+      "processed_at": "2026-08-06T19:21:31.260044"
     },
     {
       "sample_name": "RAT-2 (difficulty=1, Medical consultation)",
       "sample_hash": "551fe16420508371",
       "text_length": 5618,
       "expected_critical": true,
-      "tier": 3,
+      "tier": 2,
       "gate_decision": "UNCERTAIN_NEED_LLM",
       "gate_reasons": [],
       "k_lower": 0.0,
@@ -124,13 +124,14 @@
       "hard_stop_triggered": false,
       "hard_stop_reasons": [],
       "uncertainty_flags": [
-        "k_estimate_unavailable"
+        "k_estimate_unavailable",
+        "llm_abstained"
       ],
-      "total_time": 4.2824437618255615,
-      "detection_time": 1.2847331285476684,
-      "risk_estimation_time": 0.8564887523651123,
-      "gate_time": 0.4282443761825562,
-      "llm_time": 4.04843,
+      "total_time": 2.8230838775634766,
+      "detection_time": 0.846925163269043,
+      "risk_estimation_time": 0.5646167755126953,
+      "gate_time": 0.28230838775634765,
+      "llm_time": 2.586455,
       "tiers_by_k": {
         "2": 3,
         "5": 3,
@@ -149,14 +150,14 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:29:50.378506"
+      "processed_at": "2026-08-06T19:22:08.433893"
     },
     {
       "sample_name": "RAT-3 (difficulty=1, Meeting transcript)",
       "sample_hash": "f9c40d1f068b3354",
       "text_length": 5797,
       "expected_critical": true,
-      "tier": 2,
+      "tier": 3,
       "gate_decision": "UNCERTAIN_NEED_LLM",
       "gate_reasons": [],
       "k_lower": 0.0,
@@ -175,14 +176,14 @@
       "uncertainty_flags": [
         "k_estimate_unavailable"
       ],
-      "total_time": 4.936004161834717,
-      "detection_time": 1.480801248550415,
-      "risk_estimation_time": 0.9872008323669434,
-      "gate_time": 0.4936004161834717,
-      "llm_time": 4.692493,
+      "total_time": 4.861219644546509,
+      "detection_time": 1.4583658933639525,
+      "risk_estimation_time": 0.9722439289093018,
+      "gate_time": 0.4861219644546509,
+      "llm_time": 4.614592,
       "tiers_by_k": {
         "2": 3,
-        "5": 2,
+        "5": 3,
         "10": 3,
         "15": 3,
         "20": 3,
@@ -198,7 +199,7 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:30:23.676127"
+      "processed_at": "2026-08-06T19:22:44.550410"
     },
     {
       "sample_name": "RAT-4 (difficulty=1, Medical consultation)",
@@ -224,19 +225,19 @@
       "uncertainty_flags": [
         "k_estimate_unavailable"
       ],
-      "total_time": 5.329624176025391,
-      "detection_time": 1.5988872528076172,
-      "risk_estimation_time": 1.065924835205078,
-      "gate_time": 0.532962417602539,
-      "llm_time": 5.117089,
+      "total_time": 4.100411891937256,
+      "detection_time": 1.2301235675811768,
+      "risk_estimation_time": 0.8200823783874512,
+      "gate_time": 0.4100411891937256,
+      "llm_time": 3.885823,
       "tiers_by_k": {
-        "2": 3,
+        "2": 2,
         "5": 3,
         "10": 3,
         "15": 3,
         "20": 3,
         "50": 3,
-        "100": 2
+        "100": 3
       },
       "k_lowers_by_k": {
         "2": 0.0,
@@ -247,7 +248,7 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:30:59.249721"
+      "processed_at": "2026-08-06T19:23:26.098667"
     },
     {
       "sample_name": "RAT-5 (difficulty=1, Meeting transcript)",
@@ -273,11 +274,11 @@
       "uncertainty_flags": [
         "k_estimate_unavailable"
       ],
-      "total_time": 4.6152307987213135,
-      "detection_time": 1.384569239616394,
-      "risk_estimation_time": 0.9230461597442627,
-      "gate_time": 0.46152307987213137,
-      "llm_time": 4.372058,
+      "total_time": 4.95056676864624,
+      "detection_time": 1.485170030593872,
+      "risk_estimation_time": 0.9901133537292481,
+      "gate_time": 0.49505667686462407,
+      "llm_time": 4.716966,
       "tiers_by_k": {
         "2": 3,
         "5": 3,
@@ -296,7 +297,7 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:31:56.515831"
+      "processed_at": "2026-08-06T19:24:02.285704"
     },
     {
       "sample_name": "RAT-6 (difficulty=1, Meeting transcript)",
@@ -322,14 +323,14 @@
       "uncertainty_flags": [
         "k_estimate_unavailable"
       ],
-      "total_time": 4.515359163284302,
-      "detection_time": 1.3546077489852906,
-      "risk_estimation_time": 0.9030718326568604,
-      "gate_time": 0.4515359163284302,
-      "llm_time": 4.309599,
+      "total_time": 3.5669217109680176,
+      "detection_time": 1.0700765132904053,
+      "risk_estimation_time": 0.7133843421936036,
+      "gate_time": 0.3566921710968018,
+      "llm_time": 3.358206,
       "tiers_by_k": {
-        "2": 3,
-        "5": 2,
+        "2": 2,
+        "5": 3,
         "10": 3,
         "15": 3,
         "20": 3,
@@ -345,7 +346,7 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:32:42.753549"
+      "processed_at": "2026-08-06T19:24:34.667916"
     },
     {
       "sample_name": "RAT-7 (difficulty=1, Meeting transcript)",
@@ -371,11 +372,11 @@
       "uncertainty_flags": [
         "k_estimate_unavailable"
       ],
-      "total_time": 3.4016449451446533,
-      "detection_time": 1.0204934835433959,
-      "risk_estimation_time": 0.6803289890289307,
-      "gate_time": 0.34016449451446534,
-      "llm_time": 3.177972,
+      "total_time": 3.4561991691589355,
+      "detection_time": 1.0368597507476807,
+      "risk_estimation_time": 0.6912398338317871,
+      "gate_time": 0.34561991691589355,
+      "llm_time": 3.230884,
       "tiers_by_k": {
         "2": 3,
         "5": 3,
@@ -394,7 +395,7 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:33:11.264390"
+      "processed_at": "2026-08-06T19:25:03.171319"
     },
     {
       "sample_name": "RAT-8 (difficulty=1, Meeting transcript)",
@@ -420,11 +421,11 @@
       "uncertainty_flags": [
         "k_estimate_unavailable"
       ],
-      "total_time": 5.694645166397095,
-      "detection_time": 1.7083935499191283,
-      "risk_estimation_time": 1.138929033279419,
-      "gate_time": 0.5694645166397095,
-      "llm_time": 5.455967,
+      "total_time": 4.995232582092285,
+      "detection_time": 1.4985697746276856,
+      "risk_estimation_time": 0.9990465164184571,
+      "gate_time": 0.49952325820922855,
+      "llm_time": 4.754724,
       "tiers_by_k": {
         "2": 3,
         "5": 3,
@@ -443,7 +444,7 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:33:51.815809"
+      "processed_at": "2026-08-06T19:25:41.810071"
     },
     {
       "sample_name": "RAT-9 (difficulty=1, Medical consultation)",
@@ -469,19 +470,19 @@
       "uncertainty_flags": [
         "k_estimate_unavailable"
       ],
-      "total_time": 5.543288230895996,
-      "detection_time": 1.6629864692687988,
-      "risk_estimation_time": 1.1086576461791993,
-      "gate_time": 0.5543288230895996,
-      "llm_time": 5.305302,
+      "total_time": 5.3641517162323,
+      "detection_time": 1.6092455148696898,
+      "risk_estimation_time": 1.07283034324646,
+      "gate_time": 0.53641517162323,
+      "llm_time": 5.124553,
       "tiers_by_k": {
-        "2": 3,
+        "2": 2,
         "5": 2,
-        "10": 3,
+        "10": 2,
         "15": 3,
-        "20": 2,
-        "50": 2,
-        "100": 3
+        "20": 3,
+        "50": 3,
+        "100": 2
       },
       "k_lowers_by_k": {
         "2": 0.0,
@@ -492,14 +493,14 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:34:31.958523"
+      "processed_at": "2026-08-06T19:26:14.725964"
     },
     {
       "sample_name": "RAT-10 (difficulty=1, Chatbot conversation)",
       "sample_hash": "d298af0744068167",
       "text_length": 6271,
       "expected_critical": true,
-      "tier": 2,
+      "tier": 3,
       "gate_decision": "UNCERTAIN_NEED_LLM",
       "gate_reasons": [],
       "k_lower": 0.0,
@@ -518,19 +519,19 @@
       "uncertainty_flags": [
         "k_estimate_unavailable"
       ],
-      "total_time": 3.3604695796966553,
-      "detection_time": 1.0081408739089965,
-      "risk_estimation_time": 0.6720939159393311,
-      "gate_time": 0.33604695796966555,
-      "llm_time": 3.105794,
+      "total_time": 5.470884084701538,
+      "detection_time": 1.6412652254104614,
+      "risk_estimation_time": 1.0941768169403077,
+      "gate_time": 0.5470884084701538,
+      "llm_time": 5.22211,
       "tiers_by_k": {
-        "2": 2,
+        "2": 3,
         "5": 2,
         "10": 2,
         "15": 3,
-        "20": 2,
-        "50": 3,
-        "100": 3
+        "20": 3,
+        "50": 2,
+        "100": 2
       },
       "k_lowers_by_k": {
         "2": 0.0,
@@ -541,7 +542,7 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:35:12.086344"
+      "processed_at": "2026-08-06T19:26:52.756143"
     },
     {
       "sample_name": "RAT-11 (difficulty=1, Meeting transcript)",
@@ -551,9 +552,9 @@
       "tier": 3,
       "gate_decision": "UNCERTAIN_NEED_LLM",
       "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": 328.8922456885007,
-      "joint_risk_score": 0.0,
+      "k_lower": 3.2964428100938186,
+      "k_upper": 329.64428100938187,
+      "joint_risk_score": 0.303357302889638,
       "direct_identifier_count": 21,
       "quasi_identifier_count": 7,
       "llm_invoked": true,
@@ -565,11 +566,11 @@
       "hard_stop_triggered": false,
       "hard_stop_reasons": [],
       "uncertainty_flags": [],
-      "total_time": 9.467227220535278,
-      "detection_time": 2.8401681661605833,
-      "risk_estimation_time": 1.8934454441070558,
-      "gate_time": 0.9467227220535279,
-      "llm_time": 9.224304,
+      "total_time": 3.668193817138672,
+      "detection_time": 1.1004581451416016,
+      "risk_estimation_time": 0.7336387634277344,
+      "gate_time": 0.3668193817138672,
+      "llm_time": 3.429752,
       "tiers_by_k": {
         "2": 3,
         "5": 3,
@@ -580,15 +581,15 @@
         "100": 3
       },
       "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
+        "2": 3.2964428100938186,
+        "5": 3.2964428100938186,
+        "10": 3.2964428100938186,
+        "15": 3.2964428100938186,
+        "20": 3.2964428100938186,
+        "50": 3.2964428100938186,
+        "100": 3.2964428100938186
       },
-      "processed_at": "2026-08-06T18:35:54.076640"
+      "processed_at": "2026-08-06T19:27:23.797033"
     },
     {
       "sample_name": "RAT-12 (difficulty=1, Chatbot conversation)",
@@ -614,11 +615,11 @@
       "uncertainty_flags": [
         "k_estimate_unavailable"
       ],
-      "total_time": 3.8415606021881104,
-      "detection_time": 1.152468180656433,
-      "risk_estimation_time": 0.7683121204376221,
-      "gate_time": 0.38415606021881105,
-      "llm_time": 3.549628,
+      "total_time": 3.827153444290161,
+      "detection_time": 1.1481460332870483,
+      "risk_estimation_time": 0.7654306888580322,
+      "gate_time": 0.3827153444290161,
+      "llm_time": 3.534506,
       "tiers_by_k": {
         "2": 3,
         "5": 3,
@@ -637,7 +638,7 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:36:31.911282"
+      "processed_at": "2026-08-06T19:27:54.382848"
     },
     {
       "sample_name": "RAT-13 (difficulty=1, Chatbot conversation)",
@@ -663,11 +664,11 @@
       "uncertainty_flags": [
         "k_estimate_unavailable"
       ],
-      "total_time": 3.6554155349731445,
-      "detection_time": 1.0966246604919434,
-      "risk_estimation_time": 0.731083106994629,
-      "gate_time": 0.3655415534973145,
-      "llm_time": 3.416359,
+      "total_time": 3.6765010356903076,
+      "detection_time": 1.1029503107070922,
+      "risk_estimation_time": 0.7353002071380615,
+      "gate_time": 0.3676501035690308,
+      "llm_time": 3.437079,
       "tiers_by_k": {
         "2": 3,
         "5": 3,
@@ -686,7 +687,7 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:37:03.138439"
+      "processed_at": "2026-08-06T19:28:22.570725"
     },
     {
       "sample_name": "RAT-14 (difficulty=1, Chatbot conversation)",
@@ -713,361 +714,18 @@
         "k_estimate_unavailable",
         "llm_abstained"
       ],
-      "total_time": 2.7217512130737305,
-      "detection_time": 0.8165253639221192,
-      "risk_estimation_time": 0.5443502426147461,
-      "gate_time": 0.27217512130737304,
-      "llm_time": 2.476659,
-      "tiers_by_k": {
-        "2": 2,
-        "5": 3,
-        "10": 3,
-        "15": 3,
-        "20": 3,
-        "50": 3,
-        "100": 2
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:37:38.387136"
-    },
-    {
-      "sample_name": "RAT-15 (difficulty=1, Chatbot conversation)",
-      "sample_hash": "8751d5442dafc400",
-      "text_length": 6017,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 41,
-      "quasi_identifier_count": 9,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 6017,
-      "masked_text_length": 5942,
-      "masking_ratio": 0.012464683397041714,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 3.5911812782287598,
-      "detection_time": 1.0773543834686279,
-      "risk_estimation_time": 0.718236255645752,
-      "gate_time": 0.359118127822876,
-      "llm_time": 3.362766,
+      "total_time": 3.323920488357544,
+      "detection_time": 0.9971761465072632,
+      "risk_estimation_time": 0.6647840976715088,
+      "gate_time": 0.3323920488357544,
+      "llm_time": 3.073223,
       "tiers_by_k": {
         "2": 3,
         "5": 3,
         "10": 3,
-        "15": 3,
-        "20": 3,
-        "50": 3,
-        "100": 3
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:38:05.808569"
-    },
-    {
-      "sample_name": "RAT-16 (difficulty=1, Chatbot conversation)",
-      "sample_hash": "aa72c8df416f8b4c",
-      "text_length": 7588,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 45,
-      "quasi_identifier_count": 13,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 7588,
-      "masked_text_length": 7554,
-      "masking_ratio": 0.0044807590933052185,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 3.6724274158477783,
-      "detection_time": 1.1017282247543334,
-      "risk_estimation_time": 0.7344854831695558,
-      "gate_time": 0.3672427415847779,
-      "llm_time": 3.383933,
-      "tiers_by_k": {
-        "2": 3,
-        "5": 3,
-        "10": 3,
-        "15": 3,
-        "20": 3,
-        "50": 3,
-        "100": 3
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:38:34.714012"
-    },
-    {
-      "sample_name": "RAT-17 (difficulty=1, Chatbot conversation)",
-      "sample_hash": "ed3def32d485cfa8",
-      "text_length": 7544,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 40,
-      "quasi_identifier_count": 9,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 7544,
-      "masked_text_length": 7493,
-      "masking_ratio": 0.00676033934252386,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 4.0924177169799805,
-      "detection_time": 1.2277253150939942,
-      "risk_estimation_time": 0.8184835433959962,
-      "gate_time": 0.4092417716979981,
-      "llm_time": 3.795485,
-      "tiers_by_k": {
-        "2": 3,
-        "5": 3,
-        "10": 3,
-        "15": 3,
-        "20": 3,
-        "50": 3,
-        "100": 3
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:39:07.236053"
-    },
-    {
-      "sample_name": "RAT-18 (difficulty=1, Chatbot conversation)",
-      "sample_hash": "669e2ce31b4a21c4",
-      "text_length": 5935,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 30,
-      "quasi_identifier_count": 9,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 5935,
-      "masked_text_length": 5936,
-      "masking_ratio": -0.00016849199663016007,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 3.5486841201782227,
-      "detection_time": 1.0646052360534668,
-      "risk_estimation_time": 0.7097368240356445,
-      "gate_time": 0.35486841201782227,
-      "llm_time": 3.341803,
-      "tiers_by_k": {
-        "2": 3,
-        "5": 3,
-        "10": 3,
-        "15": 3,
-        "20": 3,
-        "50": 3,
-        "100": 3
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:39:36.592295"
-    },
-    {
-      "sample_name": "RAT-19 (difficulty=1, Chatbot conversation)",
-      "sample_hash": "2adee0440314c661",
-      "text_length": 6898,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 25,
-      "quasi_identifier_count": 8,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 6898,
-      "masked_text_length": 6894,
-      "masking_ratio": 0.0005798782255726297,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 3.61203932762146,
-      "detection_time": 1.083611798286438,
-      "risk_estimation_time": 0.722407865524292,
-      "gate_time": 0.361203932762146,
-      "llm_time": 3.382118,
-      "tiers_by_k": {
-        "2": 3,
-        "5": 3,
-        "10": 3,
-        "15": 3,
-        "20": 3,
-        "50": 3,
-        "100": 3
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:40:04.489578"
-    },
-    {
-      "sample_name": "RAT-20 (difficulty=1, Chatbot conversation)",
-      "sample_hash": "49fb99f88f62eeba",
-      "text_length": 6659,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 43,
-      "quasi_identifier_count": 6,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 6659,
-      "masked_text_length": 6504,
-      "masking_ratio": 0.023276768283526057,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 5.163728713989258,
-      "detection_time": 1.5491186141967772,
-      "risk_estimation_time": 1.0327457427978517,
-      "gate_time": 0.5163728713989258,
-      "llm_time": 4.921204,
-      "tiers_by_k": {
-        "2": 2,
-        "5": 2,
-        "10": 3,
-        "15": 3,
-        "20": 3,
+        "15": 2,
+        "20": 2,
         "50": 2,
-        "100": 2
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:40:36.693985"
-    },
-    {
-      "sample_name": "RAT-21 (difficulty=1, Chatbot conversation)",
-      "sample_hash": "53ac0a2b9678fe5c",
-      "text_length": 7916,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 54,
-      "quasi_identifier_count": 7,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 7916,
-      "masked_text_length": 7882,
-      "masking_ratio": 0.004295098534613441,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 3.7980234622955322,
-      "detection_time": 1.1394070386886597,
-      "risk_estimation_time": 0.7596046924591064,
-      "gate_time": 0.3798023462295532,
-      "llm_time": 3.510306,
-      "tiers_by_k": {
-        "2": 3,
-        "5": 3,
-        "10": 3,
-        "15": 3,
-        "20": 3,
-        "50": 3,
         "100": 3
       },
       "k_lowers_by_k": {
@@ -1079,401 +737,9 @@
         "50": 0.0,
         "100": 0.0
       },
-      "processed_at": "2026-08-06T18:41:06.125426"
-    },
-    {
-      "sample_name": "RAT-22 (difficulty=1, Medical consultation)",
-      "sample_hash": "8bb29f6b3c3b9932",
-      "text_length": 5902,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 28,
-      "quasi_identifier_count": 7,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 5902,
-      "masked_text_length": 5875,
-      "masking_ratio": 0.004574720433751271,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 4.39773416519165,
-      "detection_time": 1.3193202495574952,
-      "risk_estimation_time": 0.8795468330383301,
-      "gate_time": 0.4397734165191651,
-      "llm_time": 4.173844,
-      "tiers_by_k": {
-        "2": 3,
-        "5": 3,
-        "10": 3,
-        "15": 3,
-        "20": 3,
-        "50": 3,
-        "100": 3
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:41:39.162273"
-    },
-    {
-      "sample_name": "RAT-23 (difficulty=1, Chatbot conversation)",
-      "sample_hash": "9a7ec8b4ddbfd457",
-      "text_length": 7064,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 40,
-      "quasi_identifier_count": 6,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 7064,
-      "masked_text_length": 7054,
-      "masking_ratio": 0.0014156285390713476,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 3.6359798908233643,
-      "detection_time": 1.0907939672470093,
-      "risk_estimation_time": 0.7271959781646729,
-      "gate_time": 0.3635979890823364,
-      "llm_time": 3.376197,
-      "tiers_by_k": {
-        "2": 3,
-        "5": 3,
-        "10": 2,
-        "15": 3,
-        "20": 3,
-        "50": 3,
-        "100": 3
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:42:09.009212"
-    },
-    {
-      "sample_name": "RAT-24 (difficulty=1, Meeting transcript)",
-      "sample_hash": "711cac19d9ea963d",
-      "text_length": 5119,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 39,
-      "quasi_identifier_count": 9,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 5119,
-      "masked_text_length": 5080,
-      "masking_ratio": 0.007618675522563001,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 3.4815518856048584,
-      "detection_time": 1.0444655656814574,
-      "risk_estimation_time": 0.6963103771209718,
-      "gate_time": 0.3481551885604859,
-      "llm_time": 3.283909,
-      "tiers_by_k": {
-        "2": 3,
-        "5": 3,
-        "10": 3,
-        "15": 3,
-        "20": 3,
-        "50": 3,
-        "100": 3
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:42:36.016613"
-    },
-    {
-      "sample_name": "RAT-25 (difficulty=1, Meeting transcript)",
-      "sample_hash": "31b650c643df2013",
-      "text_length": 5664,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 41,
-      "quasi_identifier_count": 11,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 5664,
-      "masked_text_length": 5616,
-      "masking_ratio": 0.00847457627118644,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 4.110900163650513,
-      "detection_time": 1.2332700490951538,
-      "risk_estimation_time": 0.8221800327301025,
-      "gate_time": 0.41109001636505127,
-      "llm_time": 3.904679,
-      "tiers_by_k": {
-        "2": 3,
-        "5": 3,
-        "10": 2,
-        "15": 3,
-        "20": 3,
-        "50": 3,
-        "100": 3
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:43:07.062617"
-    },
-    {
-      "sample_name": "RAT-26 (difficulty=1, Chatbot conversation)",
-      "sample_hash": "cc41f70d0b66e150",
-      "text_length": 6736,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 59,
-      "quasi_identifier_count": 7,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 6736,
-      "masked_text_length": 6674,
-      "masking_ratio": 0.009204275534441805,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 3.6368355751037598,
-      "detection_time": 1.091050672531128,
-      "risk_estimation_time": 0.727367115020752,
-      "gate_time": 0.363683557510376,
-      "llm_time": 3.400922,
-      "tiers_by_k": {
-        "2": 3,
-        "5": 3,
-        "10": 3,
-        "15": 3,
-        "20": 3,
-        "50": 3,
-        "100": 3
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:43:35.117577"
-    },
-    {
-      "sample_name": "RAT-27 (difficulty=1, Chatbot conversation)",
-      "sample_hash": "1ba6fb36c2a40970",
-      "text_length": 6944,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 37,
-      "quasi_identifier_count": 7,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 6944,
-      "masked_text_length": 6925,
-      "masking_ratio": 0.002736175115207373,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 3.7200589179992676,
-      "detection_time": 1.1160176753997801,
-      "risk_estimation_time": 0.7440117835998535,
-      "gate_time": 0.37200589179992677,
-      "llm_time": 3.462543,
-      "tiers_by_k": {
-        "2": 2,
-        "5": 2,
-        "10": 3,
-        "15": 3,
-        "20": 3,
-        "50": 2,
-        "100": 2
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:44:01.916381"
-    },
-    {
-      "sample_name": "RAT-28 (difficulty=1, Medical consultation)",
-      "sample_hash": "1f9b4a284d0f3865",
-      "text_length": 5769,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 31,
-      "quasi_identifier_count": 8,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 5769,
-      "masked_text_length": 5680,
-      "masking_ratio": 0.015427283758016988,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 3.508319854736328,
-      "detection_time": 1.0524959564208984,
-      "risk_estimation_time": 0.7016639709472656,
-      "gate_time": 0.3508319854736328,
-      "llm_time": 3.313718,
-      "tiers_by_k": {
-        "2": 3,
-        "5": 3,
-        "10": 3,
-        "15": 3,
-        "20": 3,
-        "50": 3,
-        "100": 3
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:44:29.196215"
-    },
-    {
-      "sample_name": "RAT-29 (difficulty=1, Medical consultation)",
-      "sample_hash": "e5023e68782836fd",
-      "text_length": 5391,
-      "expected_critical": true,
-      "tier": 3,
-      "gate_decision": "UNCERTAIN_NEED_LLM",
-      "gate_reasons": [],
-      "k_lower": 0.0,
-      "k_upper": null,
-      "joint_risk_score": 0.0,
-      "direct_identifier_count": 38,
-      "quasi_identifier_count": 8,
-      "llm_invoked": true,
-      "llm_decision": null,
-      "llm_explanation": null,
-      "original_text_length": 5391,
-      "masked_text_length": 5296,
-      "masking_ratio": 0.01762196253014283,
-      "hard_stop_triggered": false,
-      "hard_stop_reasons": [],
-      "uncertainty_flags": [
-        "k_estimate_unavailable"
-      ],
-      "total_time": 5.403648138046265,
-      "detection_time": 1.6210944414138793,
-      "risk_estimation_time": 1.080729627609253,
-      "gate_time": 0.5403648138046265,
-      "llm_time": 5.184471,
-      "tiers_by_k": {
-        "2": 3,
-        "5": 3,
-        "10": 3,
-        "15": 3,
-        "20": 3,
-        "50": 3,
-        "100": 3
-      },
-      "k_lowers_by_k": {
-        "2": 0.0,
-        "5": 0.0,
-        "10": 0.0,
-        "15": 0.0,
-        "20": 0.0,
-        "50": 0.0,
-        "100": 0.0
-      },
-      "processed_at": "2026-08-06T18:45:10.520456"
+      "processed_at": "2026-08-06T19:28:56.094177"
     }
   ],
-  "last_updated": "2026-08-06T18:45:10.520977",
+  "last_updated": "2026-08-06T19:28:56.094520",
   "version": "1.0"
 }
