@@ -1,26 +1,26 @@
 {
-  "total_samples": 20,
+  "total_samples": 300,
   "tier_1_count": 0,
-  "tier_2_count": 20,
-  "tier_3_count": 0,
+  "tier_2_count": 57,
+  "tier_3_count": 243,
   "tier_1_pct": 0.0,
-  "tier_2_pct": 100.0,
-  "tier_3_pct": 0.0,
-  "false_cloud_release_count": 20,
-  "false_cloud_release_rate": 100.0,
+  "tier_2_pct": 19.0,
+  "tier_3_pct": 81.0,
+  "false_cloud_release_count": 57,
+  "false_cloud_release_rate": 19.0,
   "over_censoring_count": 0,
   "over_censoring_rate": 0.0,
-  "llm_invocation_count": 20,
+  "llm_invocation_count": 300,
   "llm_invocation_rate": 100.0,
-  "mean_k_lower": 1.0,
-  "median_k_lower": 1.0,
+  "mean_k_lower": 0.0,
+  "median_k_lower": 0.0,
   "mean_k_lower_by_tier": {
     "TIER_1": 0.0,
-    "TIER_2": 1.0,
+    "TIER_2": 0.0,
     "TIER_3": 0.0
   },
-  "mean_total_time": 0.26627531051635744,
-  "mean_llm_time": 0.0005859500000000001,
+  "mean_total_time": 5.154594846566519,
+  "mean_llm_time": 4.861248066666667,
   "correlations": {
     "k_lower": 0.0,
     "direct_id_count": 0.0,
@@ -28,15 +28,9 @@
     "high_harm_count": 0.0,
     "masking_ratio": 0.0
   },
-  "optimal_k_knee": 3,
-  "optimal_k_efficiency": 2,
+  "optimal_k_knee": 15,
+  "optimal_k_efficiency": 10,
   "optimal_k_pareto": [
-    2,
-    3,
-    5,
-    10,
-    20,
-    50,
-    100
+    10
   ]
 }
