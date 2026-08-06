@@ -477,6 +477,178 @@ class QIDetector:
         r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b',
         r'\b\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\b',
     ]
+
+    # -------------------------------------------------------------------------
+    # EDUCATIONAL ATTAINMENT PATTERNS - maps to SCHL codes
+    # -------------------------------------------------------------------------
+    EDUCATION_PATTERNS = [
+        (r'\b(?:completed?|have|earned?|holds?|with)\s+(?:a\s+)?(high school|hs)\s*(?:diploma|degree)?\b', 'high_school_diploma'),
+        (r'\b(?:ged|g\.e\.d\.)\b', 'ged'),
+        (r'\bsome\s+college\b', 'some_college_1yr_plus'),
+        (r'\b(?:associate[\'s]?s?|aa|as)\s*(?:degree)?\b', 'associates_degree'),
+        (r'\b(?:bachelor[\'s]?s?|ba|bs|b\.a\.|b\.s\.)\s*(?:degree)?\b', 'bachelors_degree'),
+        (r'\b(?:master[\'s]?s?|ma|ms|mba|m\.a\.|m\.s\.)\s*(?:degree)?\b', 'masters_degree'),
+        (r'\b(?:doctorate|doctoral|ph\.?d\.?|phd)\b', 'doctorate_degree'),
+        (r'\b(?:md|m\.d\.|medical\s+degree|doctor\s+of\s+medicine)\b', 'professional_degree'),
+        (r'\b(?:jd|j\.d\.|law\s+degree|juris\s+doctor)\b', 'professional_degree'),
+        (r'\bdropped?\s+out\b', 'grade_12_no_diploma'),
+        (r'\bno\s+(?:formal\s+)?education\b', 'no_schooling'),
+    ]
+    
+    # -------------------------------------------------------------------------
+    # EMPLOYMENT STATUS PATTERNS - maps to ESR codes
+    # -------------------------------------------------------------------------
+    EMPLOYMENT_STATUS_PATTERNS = [
+        (r'\b(?:currently\s+)?(?:employed|working|at\s+work)\b', 'employed_at_work'),
+        (r'\b(?:unemployed|out\s+of\s+work|jobless|looking\s+for\s+(?:a\s+)?(?:job|work))\b', 'unemployed'),
+        (r'\b(?:retired|not\s+working)\b', 'not_in_labor_force'),
+        (r'\b(?:in\s+the\s+)?(?:military|armed\s+forces|army|navy|air\s+force|marines?|coast\s+guard)\b', 'armed_forces_at_work'),
+        (r'\b(?:serving|enlisted|active\s+duty)\b', 'armed_forces_at_work'),
+        (r'\b(?:stay[\s-]?at[\s-]?home|homemaker|housewife|househusband)\b', 'not_in_labor_force'),
+        (r'\b(?:student|in\s+school|attending\s+(?:college|university))\b', 'not_in_labor_force'),
+        (r'\b(?:disabled|on\s+disability)\b', 'not_in_labor_force'),
+    ]
+    
+    # -------------------------------------------------------------------------
+    # DETAILED OCCUPATION PATTERNS - maps to SOC codes
+    # -------------------------------------------------------------------------
+    OCCUPATION_KEYWORDS = {
+        # Healthcare (SOC 29, 31)
+        'doctor': 'healthcare_practitioners',
+        'physician': 'healthcare_practitioners',
+        'nurse': 'healthcare_practitioners',
+        'registered nurse': 'registered_nurse',
+        'medical': 'healthcare_practitioners',
+        'hospital': 'healthcare_practitioners',
+        'healthcare': 'healthcare_practitioners',
+        'pharmacist': 'healthcare_practitioners',
+        'therapist': 'healthcare_practitioners',
+        'surgeon': 'healthcare_practitioners',
+        'dentist': 'healthcare_practitioners',
+        
+        # Education (SOC 25)
+        'teacher': 'education_training_library',
+        'professor': 'postsecondary_teacher',
+        'educator': 'education_training_library',
+        'instructor': 'education_training_library',
+        'school': 'education_training_library',
+        
+        # Business/HR (SOC 13)
+        'human resources': 'human_resources_specialist',
+        'hr specialist': 'human_resources_specialist',
+        'hr worker': 'human_resources_specialist',
+        'accountant': 'accountant_auditor',
+        'auditor': 'accountant_auditor',
+        
+        # Science (SOC 19)
+        'biological technician': 'biological_technician',
+        'biologist': 'life_physical_social_science',
+        'environmental scientist': 'environmental_scientist',
+        'zoologist': 'zoologist',
+        'astronomer': 'astronomer',
+        'epidemiologist': 'epidemiologist',
+        'scientist': 'life_physical_social_science',
+        
+        # Technology (SOC 15)
+        'software developer': 'software_developer',
+        'programmer': 'software_developer',
+        'computer': 'computer_mathematical',
+        'systems analyst': 'computer_systems_analyst',
+        
+        # Legal (SOC 23)
+        'lawyer': 'lawyer',
+        'attorney': 'lawyer',
+        'legal': 'legal',
+        
+        # Protective Service (SOC 33)
+        'police': 'police_officer',
+        'firefighter': 'firefighter',
+        'fire fighter': 'firefighter',
+        
+        # Sales (SOC 41)
+        'salesperson': 'sales',
+        'retail': 'retail_salesperson',
+        
+        # Transportation (SOC 53)
+        'truck driver': 'truck_driver',
+        'trucker': 'truck_driver',
+        
+        # Construction (SOC 47)
+        'construction': 'construction_extraction',
+        'laborer': 'construction_laborer',
+        
+        # Management (SOC 11)
+        'manager': 'management',
+        'executive': 'management',
+        'ceo': 'management',
+        'director': 'management',
+    }
+    
+    # Rare occupations that trigger high-harm checks
+    RARE_OCCUPATION_TERMS = {'zoologist', 'astronomer', 'epidemiologist'}
+    
+    # -------------------------------------------------------------------------
+    # DETAILED RACE/ETHNICITY NORMALIZATION - maps to RAC2P categories
+    # -------------------------------------------------------------------------
+    RACE_ETHNICITY_NORMALIZATION = {
+        # White
+        'white': 'white',
+        'caucasian': 'white',
+        # Black
+        'black': 'black',
+        'african american': 'black',
+        'african-american': 'black',
+        # Asian - detailed
+        'asian': 'asian',
+        'asian indian': 'asian_indian',
+        'indian': 'asian_indian',  # Contextual - could be Native American
+        'chinese': 'chinese',
+        'korean': 'korean',
+        'japanese': 'japanese',
+        'vietnamese': 'vietnamese',
+        'filipino': 'filipino',
+        'filipina': 'filipino',
+        'cambodian': 'cambodian',
+        'laotian': 'laotian',
+        'hmong': 'hmong',
+        'thai': 'thai',
+        'pakistani': 'pakistani',
+        'bangladeshi': 'bangladeshi',
+        # Pacific Islander - detailed
+        'pacific islander': 'pacific_islander',
+        'native hawaiian': 'native_hawaiian',
+        'hawaiian': 'native_hawaiian',
+        'samoan': 'samoan',
+        'tongan': 'tongan',
+        'guamanian': 'guamanian_chamorro',
+        'chamorro': 'guamanian_chamorro',
+        # Hispanic/Latino - detailed
+        'hispanic': 'hispanic',
+        'latino': 'hispanic',
+        'latina': 'hispanic',
+        'latinx': 'hispanic',
+        'mexican': 'mexican',
+        'puerto rican': 'puerto_rican',
+        'cuban': 'cuban',
+        'dominican': 'dominican',
+        # Native American - detailed
+        'native american': 'native_american',
+        'american indian': 'native_american',
+        'alaska native': 'alaska_native',
+        'indigenous': 'native_american',
+        'cherokee': 'cherokee',
+        'navajo': 'navajo',
+        'sioux': 'sioux',
+        'choctaw': 'choctaw',
+        'chippewa': 'chippewa',
+        'apache': 'apache',
+        # Multi-racial
+        'two or more races': 'two_or_more_races',
+        'multiracial': 'two_or_more_races',
+        'mixed race': 'two_or_more_races',
+        'biracial': 'two_or_more_races',
+    }
+
     
     def __init__(self):
         self.nlp = self._load_spacy_model()
@@ -703,6 +875,32 @@ class QIDetector:
                     detector="pattern",
                     confidence=0.85,
                 )
+
+        # === EDUCATION DETECTION ===
+        for pattern, normalized_value in self.EDUCATION_PATTERNS:
+            for match in re.finditer(pattern, text_lower, re.IGNORECASE):
+                self._append_qi(
+                    evidence,
+                    qi_type="education",
+                    normalized_value=normalized_value,
+                    granularity="education_level",
+                    detector="pattern",
+                    confidence=0.80,
+                )
+                break  # One education level per text
+        
+        # === EMPLOYMENT STATUS DETECTION ===
+        for pattern, normalized_value in self.EMPLOYMENT_STATUS_PATTERNS:
+            for match in re.finditer(pattern, text_lower, re.IGNORECASE):
+                self._append_qi(
+                    evidence,
+                    qi_type="employment_status",
+                    normalized_value=normalized_value,
+                    granularity="employment_status",
+                    detector="pattern",
+                    confidence=0.82,
+                )
+                break  # One employment status per text
         
         # === DEDUPLICATION ===
         # Keep one QI per (type, normalized_value) to avoid double-counting

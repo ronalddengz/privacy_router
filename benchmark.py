@@ -33,7 +33,7 @@ import numpy as np
 
 # Import the revised pipeline components
 from policy import PolicyProfile, Tier, HarmCategory
-from frequency_tables import LocalFrequencyTable, create_sample_frequency_table
+from frequency_tables import LocalFrequencyTable
 from router import PrivacyRouter, RoutingResult
 from contextual_gate import GateDecision
 
@@ -447,7 +447,6 @@ class RevisedBenchmarkPipeline:
             print(f"  Creating sample frequency table at {db_path}...")
         else:
             print(f"  Refreshing sample frequency table at {db_path}...")
-        create_sample_frequency_table(str(db_path))
         self.freq_table = LocalFrequencyTable(str(db_path))
     
     def _init_router(self):
