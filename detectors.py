@@ -24,7 +24,6 @@ from policy import (
     PIIEvidence, QIEvidence, EntityCategory, HarmCategory, PolicyProfile
 )
 
-
 class PIIDetector:
     """
     Fast PII detection using Presidio + custom patterns.
@@ -53,6 +52,22 @@ class PIIDetector:
         ],
         "HEALTH_PLAN_ID": [
             r'\b[A-Z]{3}\d{9,12}\b',  # Common insurance ID format
+        ],
+        "DATE": [
+            r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b',
+            r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b',
+            r'\b\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\b',
+            r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}\b',
+            r'\b\d{4}[/-]\d{1,2}[/-]\d{1,2}\b',
+        ],
+        "TIME": [
+            r'\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm|a\.m\.|p\.m\.)\b',
+            r'\b\d{1,2}\s*(?:AM|PM|am|pm|a\.m\.|p\.m\.)\b',
+            r'\b(?:at\s+)?\d{1,2}:\d{2}(?::\d{2})?(?!\d)\b',
+        ],
+        "DATE_TIME": [
+            r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?\b',
+            r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b',
         ],
     }
     
@@ -471,9 +486,25 @@ class QIDetector:
     ]
     
     DATE_PATTERNS = [
-        r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b',
-        r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b',
-        r'\b\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\b',
+        r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b',  # 01/15/2024, 1-15-24
+        r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b',  # January 15, 2024
+        r'\b\d{1,2}\s+(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\b',  # 15 January 2024
+        r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\s+\d{1,2},?\s+\d{4}\b',  # Jan 15, 2024
+        r'\b\d{4}[/-]\d{1,2}[/-]\d{1,2}\b',  # ISO format: 2024-01-15
+        r'\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\b',  # January 2024 (month-year)
+    ]
+
+    TIME_PATTERNS = [
+        r'\b\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm|a\.m\.|p\.m\.)?\b',  # 10:30 AM, 10:30:45 PM
+        r'\b\d{1,2}\s*(?:AM|PM|am|pm|a\.m\.|p\.m\.)\b',  # 10 AM, 3pm
+        r'\b(?:at\s+)?\d{1,2}:\d{2}(?::\d{2})?\b',  # at 10:30, 14:30:00
+        r'\b(?:noon|midnight)\b',  # noon, midnight
+        r'\b\d{1,2}\s*(?:o\'?clock)\b',  # 3 o'clock
+    ]
+
+    DATETIME_PATTERNS = [
+        r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\s+\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM|am|pm)?\b',  # 01/15/2024 10:30 AM
+        r'\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?\b',  # ISO 8601: 2024-01-15T10:30:00Z
     ]
 
     # -------------------------------------------------------------------------
@@ -837,6 +868,42 @@ class QIDetector:
                     confidence=0.75,
                 )
                 break  # Only add one occupation per text
+
+        # === 8. DATE DETECTION ===
+        for pattern in self.DATE_PATTERNS:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                self._append_qi(
+                    evidence,
+                    qi_type="date",
+                    normalized_value=match.group(0),
+                    granularity="full_date",
+                    detector="pattern",
+                    confidence=0.85,
+                )
+
+        # === 9. TIME DETECTION ===
+        for pattern in self.TIME_PATTERNS:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                self._append_qi(
+                    evidence,
+                    qi_type="time",
+                    normalized_value=match.group(0),
+                    granularity="time_of_day",
+                    detector="pattern",
+                    confidence=0.80,
+                )
+
+        # === 10. DATETIME DETECTION (combined) ===
+        for pattern in self.DATETIME_PATTERNS:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                self._append_qi(
+                    evidence,
+                    qi_type="datetime",
+                    normalized_value=match.group(0),
+                    granularity="full_datetime",
+                    detector="pattern",
+                    confidence=0.90,
+                )
         
         # Check for rare occupations specifically
         for term in self.RARE_OCCUPATION_TERMS:
