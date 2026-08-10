@@ -856,18 +856,22 @@ class QIDetector:
                 pass
         
         # === 7. OCCUPATION DETECTION ===
-        # Check for occupation keywords
-        for keyword, occupation_category in self.OCCUPATION_KEYWORDS.items():
+        text_lower = text.lower()
+        occupation_detected = False
+        
+        # Try specific keywords first
+        for keyword, normalized in self.OCCUPATION_KEYWORDS.items():
             if keyword in text_lower:
                 self._append_qi(
                     evidence,
                     qi_type="occupation",
-                    normalized_value=occupation_category,
-                    granularity="occupation_category",
-                    detector="gazetteer",
-                    confidence=0.75,
+                    normalized_value=normalized,
+                    granularity="occupation_broad",
+                    detector="keyword",
+                    confidence=0.80,
                 )
-                break  # Only add one occupation per text
+                occupation_detected = True
+                break  # Take first match
 
         # === 8. DATE DETECTION ===
         for pattern in self.DATE_PATTERNS:
