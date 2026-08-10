@@ -1,100 +1,142 @@
 import json
+import random
 import argparse
 
 
-def py_list_str(items):
+def get_record_text(item):
     """
-    Format a Python list in the same style as the RAT txt metadata:
-    ['address', 'email']
+    RAT records usually have a top-level 'text' field.
+    The Wikipedia records from the earlier script may store text in:
+      item["profile"]["article text"]
+    This function handles both.
     """
-    return repr(list(items))
+    if "text" in item and item["text"]:
+        return item["text"]
 
-
-def get_record_text(record):
-    """
-    RAT records likely have a top-level 'text' field.
-    Wikipedia records from the earlier script store article text in:
-      profile["article text"]
-    """
-    if "text" in record and record["text"]:
-        return record["text"]
-
-    profile = record.get("profile", {}) or {}
-
+    profile = item.get("profile", {})
     if "article text" in profile:
-        title = profile.get("article title", "Untitled Wikipedia article")
+        title = profile.get("article title", "")
         article_text = profile.get("article text", "")
-        return (
-            "[START OF ARTICLE]\n"
-            f"Title: {title}\n\n"
-            f"{article_text}\n"
-            "[END OF ARTICLE]"
-        )
+
+        if title:
+            return f"# {title}\n\n{article_text}"
+        return article_text
 
     return ""
 
 
-def make_name(record):
-    record_id = str(record.get("id", "unknown"))
-    scenario = record.get("scenario", "Unknown scenario")
-    difficulty = record.get("difficulty", "unknown")
-
-    if record_id.startswith("wiki_"):
-        return f"WIKI-{record_id.replace('wiki_', '')} (difficulty={difficulty}, {scenario})"
-
-    return f"RAT-{record_id} (difficulty={difficulty}, {scenario})"
+def get_direct_ids(item):
+    direct = item.get("direct_identifiers", {})
+    if isinstance(direct, dict):
+        return list(direct.keys())
+    if isinstance(direct, list):
+        return direct
+    return []
 
 
-def record_to_txt_block(record):
-    text = get_record_text(record).strip()
+def get_indirect_ids(item):
+    indirect = item.get("indirect_identifiers", {})
+    if isinstance(indirect, dict):
+        return list(indirect.keys())
+    if isinstance(indirect, list):
+        return indirect
+    return []
 
-    difficulty = record.get("difficulty", "")
-    scenario = record.get("scenario", "")
-    expected_critical = record.get("expected_critical", False)
 
-    direct_identifiers = record.get("direct_identifiers", {}) or {}
-    indirect_identifiers = record.get("indirect_identifiers", {}) or {}
+def record_to_txt_block(item):
+    """
+    Produces blocks like rat_benchmark.txt:
 
-    direct_ids = list(direct_identifiers.keys())
-    indirect_ids = list(indirect_identifiers.keys())
+    ---
+    # name: RAT-57 (difficulty=3, Chatbot conversation)
+    # expected_critical: true
+    # rat_difficulty: 3
+    # rat_scenario: Chatbot conversation
+    # rat_direct_ids: []
+    # rat_indirect_ids: ['CIT', 'ESR']
 
-    lines = []
+    [START OF TRANSCRIPT]
+    ...
+    [END OF TRANSCRIPT]
+    """
 
-    if text:
-        lines.append(text)
-        lines.append("")
+    item_id = str(item.get("id", "unknown"))
+    scenario = item.get("scenario", "Unknown")
+    difficulty = item.get("difficulty", 0)
+    expected_critical = item.get("expected_critical", False)
 
-    lines.append("---")
-    lines.append(f"# name: {make_name(record)}")
-    lines.append(f"# expected_critical: {str(expected_critical).lower()}")
-    lines.append(f"# rat_difficulty: {difficulty}")
-    lines.append(f"# rat_scenario: {scenario}")
-    lines.append(f"# rat_direct_ids: {py_list_str(direct_ids)}")
-    lines.append(f"# rat_indirect_ids: {py_list_str(indirect_ids)}")
+    direct_ids = get_direct_ids(item)
+    indirect_ids = get_indirect_ids(item)
 
-    return "\n".join(lines)
+    text = get_record_text(item)
+
+    if item_id.startswith("wiki_") or scenario == "Wikipedia article":
+        name = item_id
+    else:
+        name = f"RAT-{item_id}"
+
+    # If the record text already has transcript markers, do not duplicate them.
+    if "[START OF TRANSCRIPT]" in text and "[END OF TRANSCRIPT]" in text:
+        body = text
+    else:
+        body = f"[START OF TRANSCRIPT]\n{text}\n[END OF TRANSCRIPT]"
+
+    block = f"""---
+# name: {name} (difficulty={difficulty}, {scenario})
+# expected_critical: {str(expected_critical).lower()}
+# rat_difficulty: {difficulty}
+# rat_scenario: {scenario}
+# rat_direct_ids: {direct_ids}
+# rat_indirect_ids: {indirect_ids}
+
+{body}
+"""
+
+    return block
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", default="merged.json")
-    parser.add_argument("--output", default="merged.txt")
+    parser.add_argument("--input_json", default="merged.json")
+    parser.add_argument("--output_json", default="merged_shuffled.json")
+    parser.add_argument("--output_txt", default="merged_shuffled.txt")
+    parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    with open(args.input, "r", encoding="utf-8") as f:
+    with open(args.input_json, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     if not isinstance(data, list):
         raise ValueError("Expected input JSON to be a list of records.")
 
-    blocks = [record_to_txt_block(record) for record in data]
+    rng = random.Random(args.seed)
+    rng.shuffle(data)
 
-    with open(args.output, "w", encoding="utf-8") as f:
-        f.write("\n\n".join(blocks))
-        f.write("\n")
+    with open(args.output_json, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
-    print(f"Read {len(data)} records from {args.input}")
-    print(f"Wrote TXT file to {args.output}")
+    txt_blocks = [record_to_txt_block(item) for item in data]
+
+    with open(args.output_txt, "w", encoding="utf-8") as f:
+        f.write("\n".join(txt_blocks))
+
+    rat_count = sum(
+        1 for x in data
+        if not str(x.get("id", "")).startswith("wiki_")
+        and x.get("scenario") != "Wikipedia article"
+    )
+
+    wiki_count = sum(
+        1 for x in data
+        if str(x.get("id", "")).startswith("wiki_")
+        or x.get("scenario") == "Wikipedia article"
+    )
+
+    print(f"Loaded records: {len(data)}")
+    print(f"RAT records: {rat_count}")
+    print(f"Wikipedia records: {wiki_count}")
+    print(f"Wrote shuffled JSON: {args.output_json}")
+    print(f"Wrote TXT file: {args.output_txt}")
 
 
 if __name__ == "__main__":
