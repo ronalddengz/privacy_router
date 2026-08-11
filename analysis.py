@@ -1,1189 +1,1109 @@
 #!/usr/bin/env python3
 """
-analysis.py - Threshold sensitivity analysis for privacy routing benchmarks.
+analysis.py - Threshold and weight sweep analysis for privacy router benchmark results.
 
-This script analyzes saved benchmark results from pipeline_results.json and
-simulates how different routing thresholds affect privacy, recall, precision,
-false positives, and routing tier behavior.
+Reads saved pipeline_results.json and simulates alternate routing decisions
+under different threshold/weight configurations to find optimal operating points.
 
-It does not rerun the router. It reuses existing benchmark outputs.
-
-Expected input:
-    pipeline_results.json
-
-Example usage:
+Usage:
+    python analysis.py -i pipeline_results.json -o analysis_outputs
     python analysis.py -i benchmark_revised_outputs/pipeline_results.json -o analysis_outputs
-
-Outputs:
-    analysis_outputs/
-        threshold_sweep_results.json
-        analysis_summary.json
-        latex_writeup.tex
-        01_threshold_phase_diagram.png
-        02_precision_recall_curves.png
-        03_privacy_false_positive_tradeoff.png
-        04_k_minimum_sensitivity.png
-        05_weight_sensitivity_heatmaps.png
-        06_operating_point_breakdown.png
-        07_wikipedia_false_positive_analysis.png
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import math
-from dataclasses import dataclass, asdict
+import sys
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
-
 
 # ---------------------------------------------------------------------------
 # Data structures
 # ---------------------------------------------------------------------------
 
 @dataclass
-class SampleResult:
+class PipelineSample:
+    """Loaded pipeline result for sweep analysis."""
     sample_name: str
     sample_hash: str
+    text_length: int
     expected_critical: bool
-
-    tier: Optional[int]
+    tier: int
+    gate_decision: str
+    k_lower: float
+    k_upper: float
     joint_risk_score: float
-    k_lower: Optional[float]
-
     direct_identifier_count: int
     quasi_identifier_count: int
     llm_invoked: bool
+    masking_ratio: float
+    word_count: int = 0
 
-    text_length: Optional[int] = None
-    original_text_length: Optional[int] = None
-    masked_text_length: Optional[int] = None
-    masking_ratio: Optional[float] = None
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "PipelineSample":
+        word_count = d.get("word_count", 0)
+        if word_count == 0:
+            # Estimate from text length (~5 chars per word)
+            word_count = max(1, d.get("text_length", 100) // 5)
+        return cls(
+            sample_name=d.get("sample_name", ""),
+            sample_hash=d.get("sample_hash", ""),
+            text_length=d.get("text_length", 0),
+            expected_critical=bool(d.get("expected_critical", False)),
+            tier=d.get("tier", 0),
+            gate_decision=d.get("gate_decision", ""),
+            k_lower=float(d.get("k_lower", 0.0)),
+            k_upper=float(d.get("k_upper", float("inf"))),
+            joint_risk_score=float(d.get("joint_risk_score", 0.0)),
+            direct_identifier_count=int(d.get("direct_identifier_count", 0)),
+            quasi_identifier_count=int(d.get("quasi_identifier_count", 0)),
+            llm_invoked=bool(d.get("llm_invoked", False)),
+            masking_ratio=float(d.get("masking_ratio", 0.0)),
+            word_count=word_count,
+        )
 
-    gate_decision: Optional[str] = None
+    def is_wikipedia(self) -> bool:
+        return "wiki" in self.sample_name.lower()
 
 
 @dataclass
 class OperatingPoint:
-    tau_review: float
-    tau_block: float
-    k_min: int
-    w_direct: float
-    w_quasi: float
+    """Metrics for a single operating point configuration."""
+    sweep_name: str = ""
 
-    precision: float
-    recall: float
-    f1: float
-    false_positive_rate: float
-    false_negative_rate: float
-    specificity: float
-    accuracy: float
-    balanced_accuracy: float
+    # Threshold parameters
+    tau_review: float = 0.30
+    tau_block: float = 0.70
+    k_min: int = 5
+    k_safe_threshold: int = 20
 
-    marked_sensitive_rate: float
-    pass_rate: float
-    review_rate: float
-    block_rate: float
+    # Separate direct/quasi thresholds
+    tau_direct_review: float = 0.20
+    tau_direct_block: float = 0.60
+    tau_quasi_review: float = 0.30
+    tau_quasi_block: float = 0.70
 
-    true_positive: int
-    false_positive: int
-    true_negative: int
-    false_negative: int
+    # Weight parameters
+    w_direct: float = 0.50
+    w_quasi: float = 0.50
 
-    total: int
-    positives: int
-    negatives: int
+    # Classification metrics
+    precision: float = 0.0
+    recall: float = 0.0
+    f1: float = 0.0
+    specificity: float = 0.0
+    false_positive_rate: float = 0.0
+    false_negative_rate: float = 0.0
+    accuracy: float = 0.0
+    balanced_accuracy: float = 0.0
 
-    wiki_false_positive_rate: Optional[float] = None
-    wiki_marked_sensitive_count: Optional[int] = None
-    wiki_total: Optional[int] = None
+    # Confusion matrix
+    true_positive: int = 0
+    false_positive: int = 0
+    true_negative: int = 0
+    false_negative: int = 0
 
+    # Routing rates
+    marked_sensitive_rate: float = 0.0
+    pass_rate: float = 0.0
+    review_rate: float = 0.0
+    block_rate: float = 0.0
 
-@dataclass
-class RoutingCounts:
-    passed: int = 0
-    review: int = 0
-    block: int = 0
+    # Wikipedia-specific
+    wiki_false_positive_rate: float = 0.0
+    wiki_marked_sensitive_count: int = 0
+    wiki_total: int = 0
 
 
 # ---------------------------------------------------------------------------
-# Utility helpers
+# Utility functions
 # ---------------------------------------------------------------------------
+
+def safe_div(num: float, denom: float, default: float = 0.0) -> float:
+    return num / denom if denom > 0 else default
+
+
+def load_pipeline_results(path: Path) -> List[PipelineSample]:
+    with open(path, "r") as f:
+        data = json.load(f)
+    return [PipelineSample.from_dict(d) for d in data]
+
+
+def write_json(path: Path, data: Any) -> None:
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2, default=str)
+
 
 def ensure_matplotlib():
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    return plt
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        return plt
+    except ImportError:
+        print("matplotlib not available, skipping plots", file=sys.stderr)
+        return None
 
 
-def safe_div(num: float, den: float, default: float = 0.0) -> float:
-    if den == 0:
-        return default
-    return num / den
-
-
-def frange(start: float, stop: float, step: float) -> List[float]:
-    """
-    Inclusive floating-point range with rounding for clean labels.
-    """
-    values = []
-    x = start
-    while x <= stop + 1e-12:
-        values.append(round(x, 10))
-        x += step
-    return values
-
-
-def load_json(path: Path) -> Any:
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def write_json(path: Path, obj: Any) -> None:
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(obj, f, indent=2)
-
-
-def is_wikipedia_sample(sample: SampleResult) -> bool:
-    name = sample.sample_name.lower()
-    return "wiki" in name or "wikipedia" in name
-
-
-def clamp01(x: float) -> float:
-    return max(0.0, min(1.0, x))
+def savefig(fig, output_dir: Path, filename: str) -> None:
+    fig.tight_layout()
+    fig.savefig(output_dir / filename, dpi=150, bbox_inches="tight")
+    print(f"  Saved {filename}")
 
 
 # ---------------------------------------------------------------------------
-# Loading benchmark results
+# Normalization
 # ---------------------------------------------------------------------------
 
-def parse_sample(raw: Dict[str, Any]) -> SampleResult:
-    return SampleResult(
-        sample_name=str(raw.get("sample_name", "")),
-        sample_hash=str(raw.get("sample_hash", "")),
-        expected_critical=bool(raw.get("expected_critical", False)),
-
-        tier=raw.get("tier"),
-        joint_risk_score=float(raw.get("joint_risk_score") or 0.0),
-        k_lower=raw.get("k_lower"),
-
-        direct_identifier_count=int(raw.get("direct_identifier_count") or 0),
-        quasi_identifier_count=int(raw.get("quasi_identifier_count") or 0),
-        llm_invoked=bool(raw.get("llm_invoked", False)),
-
-        text_length=raw.get("text_length"),
-        original_text_length=raw.get("original_text_length"),
-        masked_text_length=raw.get("masked_text_length"),
-        masking_ratio=raw.get("masking_ratio"),
-
-        gate_decision=raw.get("gate_decision"),
-    )
-
-
-def load_samples(path: Path) -> List[SampleResult]:
-    raw = load_json(path)
-    if not isinstance(raw, list):
-        raise ValueError("Expected pipeline_results.json to contain a list of result objects.")
-    return [parse_sample(x) for x in raw]
-
-
-# ---------------------------------------------------------------------------
-# Risk simulation model
-# ---------------------------------------------------------------------------
-
-def normalized_feature_counts(samples: List[SampleResult]) -> Tuple[float, float]:
-    """
-    Returns max direct and quasi counts for normalization.
-
-    We normalize counts by observed maxima so that w_direct and w_quasi
-    contribute comparable values to the adjusted risk.
-    """
+def compute_normalization(samples: List[PipelineSample]) -> Tuple[float, float]:
+    """Compute max counts for normalization."""
     max_direct = max((s.direct_identifier_count for s in samples), default=1)
     max_quasi = max((s.quasi_identifier_count for s in samples), default=1)
+    return float(max(max_direct, 1)), float(max(max_quasi, 1))
 
-    return max(float(max_direct), 1.0), max(float(max_quasi), 1.0)
 
+# ---------------------------------------------------------------------------
+# Routing simulation with separate direct/quasi thresholds
+# ---------------------------------------------------------------------------
 
-def adjusted_risk(
-    sample: SampleResult,
+def simulate_routing(
+    sample: PipelineSample,
     max_direct: float,
     max_quasi: float,
+    # Global thresholds (used for combined risk)
+    tau_review: float,
+    tau_block: float,
+    k_min: int,
+    k_safe_threshold: int,
+    # Separate direct/quasi thresholds
+    tau_direct_review: float,
+    tau_direct_block: float,
+    tau_quasi_review: float,
+    tau_quasi_block: float,
+    # Weights for combined score
     w_direct: float,
     w_quasi: float,
-) -> float:
+) -> Tuple[bool, bool, bool]:
     """
-    Computes a simulated risk score.
+    Simulate routing decision with separate direct/quasi thresholds.
 
-    The saved benchmark already contains joint_risk_score. This adds explicit
-    sensitivity to direct and quasi identifier counts so we can study how
-    feature weights affect the threshold behavior.
-
-    adjusted_risk =
-        joint_risk_score
-        + w_direct * normalized_direct_identifier_count
-        + w_quasi  * normalized_quasi_identifier_count
-
-    The result is clipped to [0, 1].
+    Returns: (marked_sensitive, is_review, is_block)
     """
-    direct_component = safe_div(sample.direct_identifier_count, max_direct)
-    quasi_component = safe_div(sample.quasi_identifier_count, max_quasi)
+    # Normalize scores
+    direct_score = sample.direct_identifier_count / max_direct
+    quasi_score = sample.quasi_identifier_count / max_quasi
 
-    risk = (
-        sample.joint_risk_score
-        + w_direct * direct_component
-        + w_quasi * quasi_component
-    )
+    # Combined risk score (weighted)
+    combined_risk = (
+        sample.joint_risk_score +
+        w_direct * direct_score +
+        w_quasi * quasi_score
+    ) / (1.0 + w_direct + w_quasi)
 
-    return clamp01(risk)
+    # === Decision logic ===
 
+    # Hard block conditions
+    # 1. k_lower below minimum
+    if sample.k_lower < k_min:
+        return True, False, True
 
-def simulated_route(
-    risk: float,
-    k_lower: Optional[float],
-    tau_review: float,
-    tau_block: float,
-    k_min: int,
-) -> str:
-    """
-    Simulates a three-way routing decision.
+    # 2. Direct identifier score above direct block threshold
+    if direct_score >= tau_direct_block:
+        return True, False, True
 
-    pass:
-        sample is treated as safe enough for cloud processing.
+    # 3. Quasi identifier score above quasi block threshold
+    if quasi_score >= tau_quasi_block:
+        return True, False, True
 
-    review:
-        sample is sensitive enough to require local LLM/contextual review.
+    # 4. Combined risk above global block threshold
+    if combined_risk >= tau_block:
+        return True, False, True
 
-    block:
-        sample is considered too sensitive for cloud routing.
+    # Review conditions
+    # 1. Direct score above direct review threshold
+    if direct_score >= tau_direct_review:
+        return True, True, False
 
-    Rule:
-        if k_lower exists and k_lower < k_min:
-            block
-        elif risk >= tau_block:
-            block
-        elif risk >= tau_review:
-            review
-        else:
-            pass
-    """
-    if k_lower is not None:
-        try:
-            if float(k_lower) < float(k_min):
-                return "block"
-        except (TypeError, ValueError):
-            pass
+    # 2. Quasi score above quasi review threshold
+    if quasi_score >= tau_quasi_review:
+        return True, True, False
 
-    if risk >= tau_block:
-        return "block"
+    # 3. Combined risk above global review threshold
+    if combined_risk >= tau_review:
+        return True, True, False
 
-    if risk >= tau_review:
-        return "review"
+    # 4. k_lower below safe threshold but above minimum -> review
+    if sample.k_lower < k_safe_threshold:
+        return True, True, False
 
-    return "pass"
+    # Safe to pass
+    return False, False, False
 
-
-def is_marked_sensitive(route: str) -> bool:
-    """
-    For classification metrics, both review and block count as positive.
-
-    Positive prediction:
-        "This text needs local/sensitive handling."
-
-    Negative prediction:
-        "This text may pass."
-    """
-    return route in {"review", "block"}
-
-
-# ---------------------------------------------------------------------------
-# Metric computation
-# ---------------------------------------------------------------------------
 
 def evaluate_operating_point(
-    samples: List[SampleResult],
+    samples: List[PipelineSample],
+    max_direct: float,
+    max_quasi: float,
+    sweep_name: str,
     tau_review: float,
     tau_block: float,
     k_min: int,
+    k_safe_threshold: int,
+    tau_direct_review: float,
+    tau_direct_block: float,
+    tau_quasi_review: float,
+    tau_quasi_block: float,
     w_direct: float,
     w_quasi: float,
 ) -> OperatingPoint:
-    max_direct, max_quasi = normalized_feature_counts(samples)
-
+    """Evaluate metrics for a single operating point."""
     tp = fp = tn = fn = 0
-    routing = RoutingCounts()
-
+    review_count = 0
+    block_count = 0
+    wiki_marked = 0
     wiki_total = 0
-    wiki_marked_sensitive = 0
 
-    for sample in samples:
-        risk = adjusted_risk(
-            sample=sample,
+    for s in samples:
+        marked, is_review, is_block = simulate_routing(
+            sample=s,
             max_direct=max_direct,
             max_quasi=max_quasi,
+            tau_review=tau_review,
+            tau_block=tau_block,
+            k_min=k_min,
+            k_safe_threshold=k_safe_threshold,
+            tau_direct_review=tau_direct_review,
+            tau_direct_block=tau_direct_block,
+            tau_quasi_review=tau_quasi_review,
+            tau_quasi_block=tau_quasi_block,
             w_direct=w_direct,
             w_quasi=w_quasi,
         )
 
-        route = simulated_route(
-            risk=risk,
-            k_lower=sample.k_lower,
-            tau_review=tau_review,
-            tau_block=tau_block,
-            k_min=k_min,
-        )
+        actual = s.expected_critical
 
-        if route == "pass":
-            routing.passed += 1
-        elif route == "review":
-            routing.review += 1
-        elif route == "block":
-            routing.block += 1
-
-        predicted_positive = is_marked_sensitive(route)
-        actual_positive = sample.expected_critical
-
-        if predicted_positive and actual_positive:
+        if marked and actual:
             tp += 1
-        elif predicted_positive and not actual_positive:
+        elif marked and not actual:
             fp += 1
-        elif not predicted_positive and not actual_positive:
+        elif not marked and not actual:
             tn += 1
-        elif not predicted_positive and actual_positive:
+        else:
             fn += 1
 
-        if is_wikipedia_sample(sample):
+        if is_review:
+            review_count += 1
+        if is_block:
+            block_count += 1
+
+        if s.is_wikipedia():
             wiki_total += 1
-            if predicted_positive:
-                wiki_marked_sensitive += 1
+            if marked:
+                wiki_marked += 1
 
     total = len(samples)
-    positives = tp + fn
-    negatives = tn + fp
-
     precision = safe_div(tp, tp + fp)
     recall = safe_div(tp, tp + fn)
     f1 = safe_div(2 * precision * recall, precision + recall)
-    false_positive_rate = safe_div(fp, fp + tn)
-    false_negative_rate = safe_div(fn, fn + tp)
     specificity = safe_div(tn, tn + fp)
+    fpr = safe_div(fp, fp + tn)
+    fnr = safe_div(fn, fn + tp)
     accuracy = safe_div(tp + tn, total)
-    balanced_accuracy = 0.5 * (recall + specificity)
-
-    marked_sensitive_rate = safe_div(tp + fp, total)
-    pass_rate = safe_div(routing.passed, total)
-    review_rate = safe_div(routing.review, total)
-    block_rate = safe_div(routing.block, total)
-
-    wiki_fpr = None
-    if wiki_total > 0:
-        wiki_fpr = safe_div(wiki_marked_sensitive, wiki_total)
+    balanced_accuracy = (recall + specificity) / 2
 
     return OperatingPoint(
+        sweep_name=sweep_name,
         tau_review=tau_review,
         tau_block=tau_block,
         k_min=k_min,
+        k_safe_threshold=k_safe_threshold,
+        tau_direct_review=tau_direct_review,
+        tau_direct_block=tau_direct_block,
+        tau_quasi_review=tau_quasi_review,
+        tau_quasi_block=tau_quasi_block,
         w_direct=w_direct,
         w_quasi=w_quasi,
-
         precision=precision,
         recall=recall,
         f1=f1,
-        false_positive_rate=false_positive_rate,
-        false_negative_rate=false_negative_rate,
         specificity=specificity,
+        false_positive_rate=fpr,
+        false_negative_rate=fnr,
         accuracy=accuracy,
         balanced_accuracy=balanced_accuracy,
-
-        marked_sensitive_rate=marked_sensitive_rate,
-        pass_rate=pass_rate,
-        review_rate=review_rate,
-        block_rate=block_rate,
-
         true_positive=tp,
         false_positive=fp,
         true_negative=tn,
         false_negative=fn,
-
-        total=total,
-        positives=positives,
-        negatives=negatives,
-
-        wiki_false_positive_rate=wiki_fpr,
-        wiki_marked_sensitive_count=wiki_marked_sensitive,
+        marked_sensitive_rate=safe_div(tp + fp, total),
+        pass_rate=safe_div(tn + fn, total),
+        review_rate=safe_div(review_count, total),
+        block_rate=safe_div(block_count, total),
+        wiki_false_positive_rate=safe_div(wiki_marked, wiki_total),
+        wiki_marked_sensitive_count=wiki_marked,
         wiki_total=wiki_total,
     )
 
 
+# ---------------------------------------------------------------------------
+# Sweep functions
+# ---------------------------------------------------------------------------
+
 def run_sweeps(
-    samples: List[SampleResult],
+    samples: List[PipelineSample],
+    # Global threshold ranges
     tau_review_values: List[float],
     tau_block_values: List[float],
     k_min_values: List[int],
+    k_safe_threshold_values: List[int],
+    # Separate direct/quasi threshold ranges
+    tau_direct_review_values: List[float],
+    tau_direct_block_values: List[float],
+    tau_quasi_review_values: List[float],
+    tau_quasi_block_values: List[float],
+    # Weight ranges
     weight_values: List[float],
+    # Baselines
     baseline_tau_review: float,
     baseline_tau_block: float,
     baseline_k_min: int,
+    baseline_k_safe_threshold: int,
+    baseline_tau_direct_review: float,
+    baseline_tau_direct_block: float,
+    baseline_tau_quasi_review: float,
+    baseline_tau_quasi_block: float,
     baseline_w_direct: float,
     baseline_w_quasi: float,
 ) -> Dict[str, List[OperatingPoint]]:
-    """
-    Runs targeted sweeps.
+    """Run all configured sweeps."""
+    max_direct, max_quasi = compute_normalization(samples)
+    results: Dict[str, List[OperatingPoint]] = {}
 
-    Instead of exhaustively plotting every possible combination, this creates
-    interpretable families of experiments:
-
-    1. tau_review sweep:
-        varies review threshold, holds others fixed.
-
-    2. tau_block sweep:
-        varies block threshold, holds others fixed.
-
-    3. k_min sweep:
-        varies k-anonymity floor, holds others fixed.
-
-    4. direct/quasi weight grid:
-        varies w_direct and w_quasi, holds thresholds fixed.
-
-    5. tau_review/tau_block grid:
-        varies both thresholds, holds k and weights fixed.
-    """
-    results: Dict[str, List[OperatingPoint]] = {
-        "tau_review_sweep": [],
-        "tau_block_sweep": [],
-        "k_min_sweep": [],
-        "weight_grid": [],
-        "threshold_grid": [],
-    }
-
-    for tau_review in tau_review_values:
-        if tau_review < baseline_tau_block:
-            results["tau_review_sweep"].append(
-                evaluate_operating_point(
-                    samples=samples,
-                    tau_review=tau_review,
-                    tau_block=baseline_tau_block,
-                    k_min=baseline_k_min,
-                    w_direct=baseline_w_direct,
-                    w_quasi=baseline_w_quasi,
-                )
-            )
-
-    for tau_block in tau_block_values:
-        if baseline_tau_review < tau_block:
-            results["tau_block_sweep"].append(
-                evaluate_operating_point(
-                    samples=samples,
-                    tau_review=baseline_tau_review,
-                    tau_block=tau_block,
-                    k_min=baseline_k_min,
-                    w_direct=baseline_w_direct,
-                    w_quasi=baseline_w_quasi,
-                )
-            )
-
-    for k_min in k_min_values:
-        results["k_min_sweep"].append(
-            evaluate_operating_point(
-                samples=samples,
-                tau_review=baseline_tau_review,
-                tau_block=baseline_tau_block,
-                k_min=k_min,
-                w_direct=baseline_w_direct,
-                w_quasi=baseline_w_quasi,
-            )
+    def eval_point(name: str, **kwargs) -> OperatingPoint:
+        defaults = dict(
+            tau_review=baseline_tau_review,
+            tau_block=baseline_tau_block,
+            k_min=baseline_k_min,
+            k_safe_threshold=baseline_k_safe_threshold,
+            tau_direct_review=baseline_tau_direct_review,
+            tau_direct_block=baseline_tau_direct_block,
+            tau_quasi_review=baseline_tau_quasi_review,
+            tau_quasi_block=baseline_tau_quasi_block,
+            w_direct=baseline_w_direct,
+            w_quasi=baseline_w_quasi,
+        )
+        defaults.update(kwargs)
+        return evaluate_operating_point(
+            samples=samples,
+            max_direct=max_direct,
+            max_quasi=max_quasi,
+            sweep_name=name,
+            **defaults,
         )
 
-    for w_direct in weight_values:
-        for w_quasi in weight_values:
-            results["weight_grid"].append(
-                evaluate_operating_point(
-                    samples=samples,
-                    tau_review=baseline_tau_review,
-                    tau_block=baseline_tau_block,
-                    k_min=baseline_k_min,
-                    w_direct=w_direct,
-                    w_quasi=w_quasi,
-                )
-            )
+    # 1. tau_review sweep
+    print("  Running tau_review sweep...")
+    results["tau_review_sweep"] = [
+        eval_point("tau_review_sweep", tau_review=v)
+        for v in tau_review_values
+    ]
 
-    for tau_review in tau_review_values:
-        for tau_block in tau_block_values:
-            if tau_review < tau_block:
-                results["threshold_grid"].append(
-                    evaluate_operating_point(
-                        samples=samples,
-                        tau_review=tau_review,
-                        tau_block=tau_block,
-                        k_min=baseline_k_min,
-                        w_direct=baseline_w_direct,
-                        w_quasi=baseline_w_quasi,
-                    )
-                )
+    # 2. tau_block sweep
+    print("  Running tau_block sweep...")
+    results["tau_block_sweep"] = [
+        eval_point("tau_block_sweep", tau_block=v)
+        for v in tau_block_values
+    ]
+
+    # 3. k_min sweep
+    print("  Running k_min sweep...")
+    results["k_min_sweep"] = [
+        eval_point("k_min_sweep", k_min=v)
+        for v in k_min_values
+    ]
+
+    # 4. k_safe_threshold sweep (NEW)
+    print("  Running k_safe_threshold sweep...")
+    results["k_safe_threshold_sweep"] = [
+        eval_point("k_safe_threshold_sweep", k_safe_threshold=v)
+        for v in k_safe_threshold_values
+    ]
+
+    # 5. tau_direct_review sweep (NEW)
+    print("  Running tau_direct_review sweep...")
+    results["tau_direct_review_sweep"] = [
+        eval_point("tau_direct_review_sweep", tau_direct_review=v)
+        for v in tau_direct_review_values
+    ]
+
+    # 6. tau_direct_block sweep (NEW)
+    print("  Running tau_direct_block sweep...")
+    results["tau_direct_block_sweep"] = [
+        eval_point("tau_direct_block_sweep", tau_direct_block=v)
+        for v in tau_direct_block_values
+    ]
+
+    # 7. tau_quasi_review sweep (NEW)
+    print("  Running tau_quasi_review sweep...")
+    results["tau_quasi_review_sweep"] = [
+        eval_point("tau_quasi_review_sweep", tau_quasi_review=v)
+        for v in tau_quasi_review_values
+    ]
+
+    # 8. tau_quasi_block sweep (NEW)
+    print("  Running tau_quasi_block sweep...")
+    results["tau_quasi_block_sweep"] = [
+        eval_point("tau_quasi_block_sweep", tau_quasi_block=v)
+        for v in tau_quasi_block_values
+    ]
+
+    # 9. Weight grid (w_direct x w_quasi)
+    print("  Running weight grid sweep...")
+    weight_grid = []
+    for wd in weight_values:
+        for wq in weight_values:
+            weight_grid.append(eval_point("weight_grid", w_direct=wd, w_quasi=wq))
+    results["weight_grid"] = weight_grid
+
+    # 10. Direct threshold grid (tau_direct_review x tau_direct_block) (NEW)
+    print("  Running direct threshold grid sweep...")
+    direct_grid = []
+    for tr in tau_direct_review_values[::2]:  # Subsample for speed
+        for tb in tau_direct_block_values[::2]:
+            if tr < tb:
+                direct_grid.append(eval_point(
+                    "direct_threshold_grid",
+                    tau_direct_review=tr,
+                    tau_direct_block=tb,
+                ))
+    results["direct_threshold_grid"] = direct_grid
+
+    # 11. Quasi threshold grid (tau_quasi_review x tau_quasi_block) (NEW)
+    print("  Running quasi threshold grid sweep...")
+    quasi_grid = []
+    for tr in tau_quasi_review_values[::2]:  # Subsample for speed
+        for tb in tau_quasi_block_values[::2]:
+            if tr < tb:
+                quasi_grid.append(eval_point(
+                    "quasi_threshold_grid",
+                    tau_quasi_review=tr,
+                    tau_quasi_block=tb,
+                ))
+    results["quasi_threshold_grid"] = quasi_grid
+
+    # 12. Full threshold grid (global tau_review x tau_block x k_safe)
+    print("  Running full threshold grid sweep...")
+    threshold_grid = []
+    for tr in tau_review_values[::3]:
+        for tb in tau_block_values[::2]:
+            for ks in k_safe_threshold_values[::2]:
+                if tr < tb:
+                    threshold_grid.append(eval_point(
+                        "threshold_grid",
+                        tau_review=tr,
+                        tau_block=tb,
+                        k_safe_threshold=ks,
+                    ))
+    results["threshold_grid"] = threshold_grid
+
+    # 13. Combined grid: direct/quasi thresholds + k_safe (NEW)
+    print("  Running combined direct/quasi/k_safe grid sweep...")
+    combined_grid = []
+    for tdr in [0.10, 0.20, 0.30, 0.40]:
+        for tdb in [0.50, 0.60, 0.70, 0.80]:
+            for tqr in [0.20, 0.30, 0.40]:
+                for tqb in [0.60, 0.70, 0.80]:
+                    for ks in [10, 20, 50, 100]:
+                        if tdr < tdb and tqr < tqb:
+                            combined_grid.append(eval_point(
+                                "combined_grid",
+                                tau_direct_review=tdr,
+                                tau_direct_block=tdb,
+                                tau_quasi_review=tqr,
+                                tau_quasi_block=tqb,
+                                k_safe_threshold=ks,
+                            ))
+    results["combined_grid"] = combined_grid
 
     return results
 
 
 # ---------------------------------------------------------------------------
-# Summary selection
+# Operating point selection
 # ---------------------------------------------------------------------------
 
+def choose_operating_points(
+    points: List[OperatingPoint],
+) -> Dict[str, OperatingPoint]:
+    """Select notable operating points."""
+    if not points:
+        return {}
+
+    chosen = {}
+
+    # Best F1
+    best_f1 = max(points, key=lambda p: p.f1)
+    chosen["best_f1"] = best_f1
+
+    # Best balanced accuracy
+    best_ba = max(points, key=lambda p: p.balanced_accuracy)
+    chosen["best_balanced_accuracy"] = best_ba
+
+    # Highest recall with FPR <= 0.15
+    valid = [p for p in points if p.false_positive_rate <= 0.15]
+    if valid:
+        chosen["high_recall_fpr_le_15"] = max(valid, key=lambda p: p.recall)
+
+    # Highest recall with FPR <= 0.10
+    valid = [p for p in points if p.false_positive_rate <= 0.10]
+    if valid:
+        chosen["high_recall_fpr_le_10"] = max(valid, key=lambda p: p.recall)
+
+    # Highest recall with wiki FPR <= 0.10
+    valid = [p for p in points if p.wiki_false_positive_rate <= 0.10]
+    if valid:
+        chosen["high_recall_wiki_fpr_le_10"] = max(valid, key=lambda p: p.recall)
+
+    # Lowest FNR with FPR <= 0.15
+    valid = [p for p in points if p.false_positive_rate <= 0.15]
+    if valid:
+        chosen["low_fnr_fpr_le_15"] = min(valid, key=lambda p: p.false_negative_rate)
+
+    # Lowest FNR with wiki FPR <= 0.10
+    valid = [p for p in points if p.wiki_false_positive_rate <= 0.10]
+    if valid:
+        chosen["low_fnr_wiki_fpr_le_10"] = min(valid, key=lambda p: p.false_negative_rate)
+
+    # Lowest wiki FPR with recall >= 0.90
+    valid = [p for p in points if p.recall >= 0.90]
+    if valid:
+        chosen["low_wiki_fpr_recall_ge_90"] = min(valid, key=lambda p: p.wiki_false_positive_rate)
+
+    # Lowest wiki FPR with recall >= 0.95
+    valid = [p for p in points if p.recall >= 0.95]
+    if valid:
+        chosen["low_wiki_fpr_recall_ge_95"] = min(valid, key=lambda p: p.wiki_false_positive_rate)
+
+    # Lowest wiki FPR overall
+    chosen["lowest_wiki_fpr"] = min(points, key=lambda p: p.wiki_false_positive_rate)
+
+    return chosen
+
+
 def pareto_candidates(points: List[OperatingPoint]) -> List[OperatingPoint]:
-    """
-    Returns points that are not dominated in privacy/recall and false positive rate.
-
-    A point is dominated if another point has:
-        recall >= this recall
-        false_positive_rate <= this false_positive_rate
-    and strictly improves at least one.
-    """
-    candidates = []
-
+    """Find Pareto-optimal points minimizing FPR and FNR."""
+    pareto = []
     for p in points:
         dominated = False
         for q in points:
-            if q is p:
-                continue
-
-            better_or_equal_recall = q.recall >= p.recall
-            better_or_equal_fpr = q.false_positive_rate <= p.false_positive_rate
-            strictly_better = q.recall > p.recall or q.false_positive_rate < p.false_positive_rate
-
-            if better_or_equal_recall and better_or_equal_fpr and strictly_better:
+            if (q.false_positive_rate <= p.false_positive_rate and
+                q.false_negative_rate <= p.false_negative_rate and
+                (q.false_positive_rate < p.false_positive_rate or
+                 q.false_negative_rate < p.false_negative_rate)):
                 dominated = True
                 break
-
         if not dominated:
-            candidates.append(p)
-
-    return candidates
-
-
-def choose_operating_points(points: List[OperatingPoint]) -> Dict[str, Optional[OperatingPoint]]:
-    if not points:
-        return {
-            "best_f1": None,
-            "best_balanced_accuracy": None,
-            "high_recall_low_fpr": None,
-            "lowest_wiki_false_positive": None,
-        }
-
-    best_f1 = max(points, key=lambda p: p.f1)
-    best_balanced = max(points, key=lambda p: p.balanced_accuracy)
-
-    # Prioritize recall >= 0.95 where possible, then minimize FPR.
-    high_recall_candidates = [p for p in points if p.recall >= 0.95]
-    if high_recall_candidates:
-        high_recall_low_fpr = min(
-            high_recall_candidates,
-            key=lambda p: (p.false_positive_rate, -p.precision, -p.f1),
-        )
-    else:
-        high_recall_low_fpr = max(points, key=lambda p: (p.recall, -p.false_positive_rate))
-
-    wiki_candidates = [p for p in points if p.wiki_false_positive_rate is not None]
-    if wiki_candidates:
-        lowest_wiki_fp = min(
-            wiki_candidates,
-            key=lambda p: (
-                p.wiki_false_positive_rate,
-                -p.recall,
-                p.false_positive_rate,
-            ),
-        )
-    else:
-        lowest_wiki_fp = None
-
-    return {
-        "best_f1": best_f1,
-        "best_balanced_accuracy": best_balanced,
-        "high_recall_low_fpr": high_recall_low_fpr,
-        "lowest_wiki_false_positive": lowest_wiki_fp,
-    }
-
-
-def summarize_samples(samples: List[SampleResult]) -> Dict[str, Any]:
-    total = len(samples)
-    positives = sum(1 for s in samples if s.expected_critical)
-    negatives = total - positives
-
-    wiki_samples = [s for s in samples if is_wikipedia_sample(s)]
-    wiki_total = len(wiki_samples)
-    wiki_critical = sum(1 for s in wiki_samples if s.expected_critical)
-
-    return {
-        "total_samples": total,
-        "expected_critical": positives,
-        "expected_noncritical": negatives,
-        "positive_rate": safe_div(positives, total),
-        "wikipedia_samples": wiki_total,
-        "wikipedia_expected_critical": wiki_critical,
-        "wikipedia_expected_noncritical": wiki_total - wiki_critical,
-        "mean_joint_risk_score": float(np.mean([s.joint_risk_score for s in samples])) if samples else 0.0,
-        "mean_direct_identifier_count": float(np.mean([s.direct_identifier_count for s in samples])) if samples else 0.0,
-        "mean_quasi_identifier_count": float(np.mean([s.quasi_identifier_count for s in samples])) if samples else 0.0,
-    }
+            pareto.append(p)
+    return pareto
 
 
 # ---------------------------------------------------------------------------
-# Plotting helpers
+# Plotting functions
 # ---------------------------------------------------------------------------
 
-def point_list_to_arrays(points: List[OperatingPoint], x_field: str) -> Dict[str, np.ndarray]:
-    return {
-        "x": np.array([getattr(p, x_field) for p in points], dtype=float),
-        "precision": np.array([p.precision for p in points], dtype=float),
-        "recall": np.array([p.recall for p in points], dtype=float),
-        "f1": np.array([p.f1 for p in points], dtype=float),
-        "fpr": np.array([p.false_positive_rate for p in points], dtype=float),
-        "marked": np.array([p.marked_sensitive_rate for p in points], dtype=float),
-        "pass": np.array([p.pass_rate for p in points], dtype=float),
-        "review": np.array([p.review_rate for p in points], dtype=float),
-        "block": np.array([p.block_rate for p in points], dtype=float),
-    }
-
-
-def savefig(fig, output_dir: Path, filename: str) -> None:
-    path = output_dir / filename
-    fig.savefig(path, dpi=160, bbox_inches="tight")
-    print(f"Saved: {path}")
-
-
-# ---------------------------------------------------------------------------
-# Plot 1: Threshold phase diagram
-# ---------------------------------------------------------------------------
-
-def plot_threshold_phase_diagram(points: List[OperatingPoint], output_dir: Path) -> None:
-    """
-    Shows how tau_review and tau_block jointly affect recall, FPR, FNR,
-    review rate, and block rate.
-    """
-    if not points:
+def plot_1d_sweep(
+    points: List[OperatingPoint],
+    x_attr: str,
+    x_label: str,
+    title: str,
+    output_dir: Path,
+    filename: str,
+) -> None:
+    """Plot a 1D sweep showing key metrics vs parameter."""
+    plt = ensure_matplotlib()
+    if plt is None or not points:
         return
 
-    plt = ensure_matplotlib()
+    points = sorted(points, key=lambda p: getattr(p, x_attr))
+    x = [getattr(p, x_attr) for p in points]
+    recall = [p.recall for p in points]
+    fnr = [p.false_negative_rate for p in points]
+    fpr = [p.false_positive_rate for p in points]
+    wiki_fpr = [p.wiki_false_positive_rate for p in points]
+    f1 = [p.f1 for p in points]
 
-    tau_reviews = sorted(set(p.tau_review for p in points))
-    tau_blocks = sorted(set(p.tau_block for p in points))
+    fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
 
-    def make_grid(metric: str) -> np.ndarray:
-        grid = np.full((len(tau_reviews), len(tau_blocks)), np.nan)
-        index_r = {v: i for i, v in enumerate(tau_reviews)}
-        index_b = {v: i for i, v in enumerate(tau_blocks)}
-        for p in points:
-            grid[index_r[p.tau_review], index_b[p.tau_block]] = getattr(p, metric)
-        return grid
-
-    metrics = [
-        ("recall", "Privacy Recall"),
-        ("false_negative_rate", "False Negative Rate"),
-        ("false_positive_rate", "False Positive Rate"),
-        ("review_rate", "Review Rate"),
-        ("block_rate", "Block Rate"),
-        ("marked_sensitive_rate", "Marked Sensitive Rate"),
-    ]
-
-    fig, axes = plt.subplots(2, 3, figsize=(18, 10), constrained_layout=True)
-
-    for ax, (metric, title) in zip(axes.ravel(), metrics):
-        grid = make_grid(metric)
-
-        im = ax.imshow(
-            grid,
-            origin="lower",
-            aspect="auto",
-            extent=[
-                min(tau_blocks),
-                max(tau_blocks),
-                min(tau_reviews),
-                max(tau_reviews),
-            ],
-            vmin=0,
-            vmax=1,
-            cmap="viridis",
-        )
-
-        ax.set_title(title)
-        ax.set_xlabel(r"$\tau_{\mathrm{block}}$")
-        ax.set_ylabel(r"$\tau_{\mathrm{review}}$")
-
-        # Invalid/unused boundary: tau_review = tau_block.
-        low = max(min(tau_reviews), min(tau_blocks))
-        high = min(max(tau_reviews), max(tau_blocks))
-        ax.plot([low, high], [low, high], color="white", linestyle="--", linewidth=1.5)
-
-        cbar = fig.colorbar(im, ax=ax)
-        cbar.set_label(title)
-
-    fig.suptitle(
-        "Joint Threshold Effects: Review Threshold vs. Block Threshold",
-        fontsize=16,
-    )
-
-    savefig(fig, output_dir, "01_threshold_phase_diagram.png")
-    plt.close(fig)
-
-
-# ---------------------------------------------------------------------------
-# Plot 2: Precision-recall curves
-# ---------------------------------------------------------------------------
-
-def plot_precision_recall_curves(sweeps: Dict[str, List[OperatingPoint]], output_dir: Path) -> None:
-    """
-    Plots precision-recall relationships for different threshold families.
-    """
-    plt = ensure_matplotlib()
-
-    fig, ax = plt.subplots(figsize=(9, 7))
-
-    families = [
-        ("tau_review_sweep", "vary review threshold", "o"),
-        ("tau_block_sweep", "vary block threshold", "s"),
-        ("k_min_sweep", "vary k_min", "^"),
-        ("weight_grid", "vary direct/quasi weights", "."),
-        ("threshold_grid", "vary both thresholds", "x"),
-    ]
-
-    for key, label, marker in families:
-        points = sweeps.get(key, [])
-        if not points:
-            continue
-
-        recall = [p.recall for p in points]
-        precision = [p.precision for p in points]
-        fpr = [p.false_positive_rate for p in points]
-
-        scatter = ax.scatter(
-            recall,
-            precision,
-            c=fpr,
-            cmap="magma_r",
-            vmin=0,
-            vmax=1,
-            marker=marker,
-            alpha=0.75,
-            label=label,
-        )
-
-    ax.set_xlabel("Recall / privacy protection")
-    ax.set_ylabel("Precision")
-    ax.set_title("Precision-Recall Tradeoff Across Threshold and Weight Sweeps")
-    ax.set_xlim(-0.02, 1.02)
-    ax.set_ylim(-0.02, 1.02)
+    ax = axes[0]
+    ax.plot(x, recall, "g-o", label="Recall (privacy protection)", linewidth=2)
+    ax.plot(x, fnr, "r-s", label="False Negative Rate", linewidth=2)
+    ax.plot(x, f1, "b-^", label="F1", linewidth=2, alpha=0.7)
+    ax.set_ylabel("Rate / Score")
+    ax.set_title(f"{title} - Recall and False Negatives")
+    ax.legend(loc="best")
     ax.grid(True, alpha=0.3)
-    ax.legend(loc="lower left")
 
-    cbar = fig.colorbar(scatter, ax=ax)
-    cbar.set_label("False Positive Rate")
+    ax = axes[1]
+    ax.plot(x, fpr, "m-o", label="False Positive Rate", linewidth=2)
+    ax.plot(x, wiki_fpr, "c-s", label="Wikipedia FPR", linewidth=2)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel("Rate")
+    ax.set_title(f"{title} - False Positives")
+    ax.legend(loc="best")
+    ax.grid(True, alpha=0.3)
 
-    savefig(fig, output_dir, "02_precision_recall_curves.png")
+    savefig(fig, output_dir, filename)
     plt.close(fig)
 
 
-# ---------------------------------------------------------------------------
-# Plot 3: Privacy vs false positive tradeoff
-# ---------------------------------------------------------------------------
+def plot_threshold_heatmap(
+    points: List[OperatingPoint],
+    x_attr: str,
+    y_attr: str,
+    x_label: str,
+    y_label: str,
+    title: str,
+    output_dir: Path,
+    filename: str,
+) -> None:
+    """Plot heatmaps for a 2D threshold grid."""
+    plt = ensure_matplotlib()
+    if plt is None or not points:
+        return
 
-def plot_privacy_false_positive_tradeoff(
-    threshold_grid: List[OperatingPoint],
+    x_vals = sorted(set(getattr(p, x_attr) for p in points))
+    y_vals = sorted(set(getattr(p, y_attr) for p in points))
+
+    if len(x_vals) < 2 or len(y_vals) < 2:
+        return
+
+    # Create lookup
+    lookup = {}
+    for p in points:
+        key = (getattr(p, x_attr), getattr(p, y_attr))
+        lookup[key] = p
+
+    metrics = ["recall", "false_negative_rate", "false_positive_rate", "wiki_false_positive_rate", "f1"]
+    metric_labels = ["Recall", "False Negative Rate", "False Positive Rate", "Wiki FPR", "F1"]
+
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    axes = axes.flatten()
+
+    for idx, (metric, label) in enumerate(zip(metrics, metric_labels)):
+        if idx >= len(axes):
+            break
+        ax = axes[idx]
+
+        data = np.zeros((len(y_vals), len(x_vals)))
+        for i, yv in enumerate(y_vals):
+            for j, xv in enumerate(x_vals):
+                p = lookup.get((xv, yv))
+                data[i, j] = getattr(p, metric) if p else np.nan
+
+        im = ax.imshow(data, aspect="auto", origin="lower",
+                       extent=[min(x_vals), max(x_vals), min(y_vals), max(y_vals)],
+                       cmap="RdYlGn" if metric in ["recall", "f1"] else "RdYlGn_r")
+        ax.set_xlabel(x_label)
+        ax.set_ylabel(y_label)
+        ax.set_title(label)
+        fig.colorbar(im, ax=ax)
+
+    # Remove empty subplot
+    if len(metrics) < len(axes):
+        for idx in range(len(metrics), len(axes)):
+            axes[idx].set_visible(False)
+
+    fig.suptitle(title, fontsize=14, fontweight="bold")
+    savefig(fig, output_dir, filename)
+    plt.close(fig)
+
+
+def plot_pareto_frontier(
+    points: List[OperatingPoint],
     output_dir: Path,
 ) -> None:
-    """
-    The most important plot for this use case.
-
-    X-axis:
-        false positive rate among non-critical examples.
-
-    Y-axis:
-        recall/privacy protection among critical examples.
-
-    Color:
-        marked sensitive rate, showing operational burden.
-    """
-    if not threshold_grid:
+    """Plot FPR vs FNR with Pareto frontier."""
+    plt = ensure_matplotlib()
+    if plt is None or not points:
         return
 
-    plt = ensure_matplotlib()
+    pareto = pareto_candidates(points)
 
-    pareto = pareto_candidates(threshold_grid)
+    fig, ax = plt.subplots(figsize=(10, 8))
 
-    fig, ax = plt.subplots(figsize=(10, 7))
+    fpr = [p.false_positive_rate for p in points]
+    fnr = [p.false_negative_rate for p in points]
+    recall = [p.recall for p in points]
 
-    x = [p.false_positive_rate for p in threshold_grid]
-    y = [p.recall for p in threshold_grid]
-    c = [p.marked_sensitive_rate for p in threshold_grid]
-
-    scatter = ax.scatter(
-        x,
-        y,
-        c=c,
-        cmap="viridis",
-        alpha=0.65,
-        s=45,
-        label="Operating points",
-    )
+    scatter = ax.scatter(fpr, fnr, c=recall, cmap="viridis", alpha=0.5, s=30)
 
     if pareto:
-        px = [p.false_positive_rate for p in pareto]
-        py = [p.recall for p in pareto]
+        pareto = sorted(pareto, key=lambda p: p.false_positive_rate)
+        pfpr = [p.false_positive_rate for p in pareto]
+        pfnr = [p.false_negative_rate for p in pareto]
+        ax.plot(pfpr, pfnr, "r-o", linewidth=2, markersize=8, label="Pareto frontier")
 
-        order = np.argsort(px)
-        px = np.array(px)[order]
-        py = np.array(py)[order]
-
-        ax.plot(
-            px,
-            py,
-            color="red",
-            linewidth=2.5,
-            marker="o",
-            markersize=4,
-            label="Pareto frontier",
-        )
-
-    ax.set_xlabel("False Positive Rate on non-critical samples")
-    ax.set_ylabel("Recall / privacy protection on critical samples")
-    ax.set_title("Privacy vs. Over-Flagging Tradeoff")
-    ax.set_xlim(-0.02, 1.02)
-    ax.set_ylim(-0.02, 1.02)
-    ax.grid(True, alpha=0.3)
-    ax.legend(loc="lower right")
-
-    cbar = fig.colorbar(scatter, ax=ax)
-    cbar.set_label("Marked Sensitive Rate")
-
-    savefig(fig, output_dir, "03_privacy_false_positive_tradeoff.png")
-    plt.close(fig)
-
-
-# ---------------------------------------------------------------------------
-# Plot 4: k-minimum sensitivity
-# ---------------------------------------------------------------------------
-
-def plot_k_minimum_sensitivity(points: List[OperatingPoint], output_dir: Path) -> None:
-    if not points:
-        return
-
-    plt = ensure_matplotlib()
-
-    points = sorted(points, key=lambda p: p.k_min)
-    arr = point_list_to_arrays(points, "k_min")
-
-    fnr = np.array([p.false_negative_rate for p in points], dtype=float)
-
-    fig, axes = plt.subplots(3, 1, figsize=(10, 12), sharex=True, constrained_layout=True)
-
-    ax = axes[0]
-    ax.plot(arr["x"], arr["recall"], marker="o", label="Recall / privacy protection")
-    ax.plot(arr["x"], fnr, marker="o", label="False Negative Rate")
-    ax.set_ylabel("Rate")
-    ax.set_title(r"Effect of $k_{\min}$ on Privacy Recall and False Negatives")
-    ax.grid(True, alpha=0.3)
-    ax.legend(loc="best")
-
-    ax = axes[1]
-    ax.plot(arr["x"], arr["precision"], marker="o", label="Precision")
-    ax.plot(arr["x"], arr["f1"], marker="o", label="F1")
-    ax.plot(arr["x"], arr["fpr"], marker="o", label="False Positive Rate")
-    ax.set_ylabel("Score / rate")
-    ax.set_title(r"Effect of $k_{\min}$ on Precision and False Positives")
-    ax.grid(True, alpha=0.3)
-    ax.legend(loc="best")
-
-    ax = axes[2]
-    ax.stackplot(
-        arr["x"],
-        arr["pass"],
-        arr["review"],
-        arr["block"],
-        labels=["Pass", "Review", "Block"],
-        colors=["#2ecc71", "#f1c40f", "#e74c3c"],
-        alpha=0.85,
-    )
-    ax.set_xlabel(r"$k_{\min}$")
-    ax.set_ylabel("Routing fraction")
-    ax.set_title("Routing Distribution as k-Minimum Increases")
-    ax.set_ylim(0, 1)
-    ax.grid(True, alpha=0.3)
-    ax.legend(loc="center right")
-
-    savefig(fig, output_dir, "04_k_minimum_sensitivity.png")
-    plt.close(fig)
-
-
-# ---------------------------------------------------------------------------
-# Plot 5: Direct/quasi weight heatmaps
-# ---------------------------------------------------------------------------
-
-def plot_weight_sensitivity_heatmaps(points: List[OperatingPoint], output_dir: Path) -> None:
-    if not points:
-        return
-
-    plt = ensure_matplotlib()
-
-    w_direct_values = sorted(set(p.w_direct for p in points))
-    w_quasi_values = sorted(set(p.w_quasi for p in points))
-
-    def make_grid(metric: str) -> np.ndarray:
-        grid = np.full((len(w_quasi_values), len(w_direct_values)), np.nan)
-        idx_d = {v: i for i, v in enumerate(w_direct_values)}
-        idx_q = {v: i for i, v in enumerate(w_quasi_values)}
-        for p in points:
-            grid[idx_q[p.w_quasi], idx_d[p.w_direct]] = getattr(p, metric)
-        return grid
-
-    metrics = [
-        ("recall", "Recall / Privacy Protection"),
-        ("false_negative_rate", "False Negative Rate"),
-        ("false_positive_rate", "False Positive Rate"),
-        ("precision", "Precision"),
-        ("marked_sensitive_rate", "Marked Sensitive Rate"),
-        ("f1", "F1"),
-    ]
-
-    fig, axes = plt.subplots(2, 3, figsize=(18, 10), constrained_layout=True)
-
-    for ax, (metric, title) in zip(axes.ravel(), metrics):
-        grid = make_grid(metric)
-
-        im = ax.imshow(
-            grid,
-            origin="lower",
-            aspect="auto",
-            extent=[
-                min(w_direct_values),
-                max(w_direct_values),
-                min(w_quasi_values),
-                max(w_quasi_values),
-            ],
-            vmin=0,
-            vmax=1,
-            cmap="viridis",
-        )
-
-        ax.set_title(title)
-        ax.set_xlabel(r"$w_{\mathrm{direct}}$")
-        ax.set_ylabel(r"$w_{\mathrm{quasi}}$")
-
-        cbar = fig.colorbar(im, ax=ax)
-        cbar.set_label(title)
-
-    fig.suptitle(
-        "Sensitivity to Direct-Identifier and Quasi-Identifier Weights",
-        fontsize=16,
-    )
-
-    savefig(fig, output_dir, "05_weight_sensitivity_heatmaps.png")
-    plt.close(fig)
-
-
-# ---------------------------------------------------------------------------
-# Plot 6: Operating point breakdown
-# ---------------------------------------------------------------------------
-
-def plot_operating_point_breakdown(
-    chosen: Dict[str, Optional[OperatingPoint]],
-    output_dir: Path,
-) -> None:
-    """
-    Compares selected operating points.
-    """
-    selected = {k: v for k, v in chosen.items() if v is not None}
-    if not selected:
-        return
-
-    plt = ensure_matplotlib()
-
-    labels = list(selected.keys())
-    points = list(selected.values())
-
-    metrics = {
-        "Recall": [p.recall for p in points],
-        "Precision": [p.precision for p in points],
-        "FPR": [p.false_positive_rate for p in points],
-        "Marked sensitive": [p.marked_sensitive_rate for p in points],
-    }
-
-    x = np.arange(len(labels))
-    width = 0.2
-
-    fig, axes = plt.subplots(2, 1, figsize=(12, 10), constrained_layout=True)
-
-    ax = axes[0]
-    for i, (metric, values) in enumerate(metrics.items()):
-        ax.bar(x + (i - 1.5) * width, values, width, label=metric)
-
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels, rotation=20, ha="right")
-    ax.set_ylabel("Score / rate")
-    ax.set_ylim(0, 1)
-    ax.set_title("Selected Operating Points: Metric Comparison")
-    ax.grid(True, axis="y", alpha=0.3)
-    ax.legend()
-
-    ax = axes[1]
-    pass_values = [p.pass_rate for p in points]
-    review_values = [p.review_rate for p in points]
-    block_values = [p.block_rate for p in points]
-
-    ax.bar(x, pass_values, label="Pass", color="#2ecc71")
-    ax.bar(x, review_values, bottom=pass_values, label="Review", color="#f1c40f")
-    bottom_block = np.array(pass_values) + np.array(review_values)
-    ax.bar(x, block_values, bottom=bottom_block, label="Block", color="#e74c3c")
-
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels, rotation=20, ha="right")
-    ax.set_ylabel("Routing fraction")
-    ax.set_ylim(0, 1)
-    ax.set_title("Selected Operating Points: Routing Breakdown")
-    ax.grid(True, axis="y", alpha=0.3)
-    ax.legend()
-
-    savefig(fig, output_dir, "06_operating_point_breakdown.png")
-    plt.close(fig)
-
-
-# ---------------------------------------------------------------------------
-# Plot 7: Wikipedia false positive analysis
-# ---------------------------------------------------------------------------
-
-def plot_wikipedia_false_positive_analysis(
-    threshold_grid: List[OperatingPoint],
-    output_dir: Path,
-) -> None:
-    """
-    Specialized plot for the user's observed problem:
-    non-sensitive Wikipedia text being marked sensitive.
-    """
-    points = [p for p in threshold_grid if p.wiki_false_positive_rate is not None]
-    if not points:
-        return
-
-    plt = ensure_matplotlib()
-
-    fig, ax = plt.subplots(figsize=(10, 7))
-
-    x = [p.recall for p in points]
-    y = [p.wiki_false_positive_rate for p in points]
-    c = [p.false_positive_rate for p in points]
-
-    scatter = ax.scatter(
-        x,
-        y,
-        c=c,
-        cmap="plasma",
-        alpha=0.75,
-        s=50,
-    )
-
-    ax.set_xlabel("Overall recall / privacy protection")
-    ax.set_ylabel("Wikipedia marked-sensitive rate")
-    ax.set_title("Wikipedia Over-Flagging vs. Privacy Recall")
-    ax.set_xlim(-0.02, 1.02)
-    ax.set_ylim(-0.02, 1.02)
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("False Negative Rate")
+    ax.set_title("FPR vs FNR Tradeoff with Pareto Frontier")
+    ax.legend(loc="upper right")
     ax.grid(True, alpha=0.3)
 
     cbar = fig.colorbar(scatter, ax=ax)
-    cbar.set_label("Overall false positive rate")
+    cbar.set_label("Recall")
 
-    savefig(fig, output_dir, "07_wikipedia_false_positive_analysis.png")
+    savefig(fig, output_dir, "pareto_frontier.png")
     plt.close(fig)
 
-def plot_false_negative_sensitivity(
+
+def plot_direct_quasi_comparison(
     sweeps: Dict[str, List[OperatingPoint]],
     output_dir: Path,
 ) -> None:
-    """
-    Dedicated plot showing how threshold and weight changes affect
-    false negative rate.
-
-    False negatives are privacy misses:
-        expected critical, but simulated route was pass.
-    """
+    """Compare direct vs quasi threshold effects."""
     plt = ensure_matplotlib()
+    if plt is None:
+        return
 
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10), constrained_layout=True)
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-    # tau_review sweep
-    points = sorted(sweeps.get("tau_review_sweep", []), key=lambda p: p.tau_review)
+    # Direct review sweep
     ax = axes[0, 0]
+    points = sweeps.get("tau_direct_review_sweep", [])
     if points:
-        x = [p.tau_review for p in points]
-        y = [p.false_negative_rate for p in points]
-        recall = [p.recall for p in points]
-
-        ax.plot(x, y, marker="o", color="#e74c3c", label="False Negative Rate")
-        ax.plot(x, recall, marker="o", color="#2ecc71", label="Recall")
-        ax.set_xlabel(r"$\tau_{\mathrm{review}}$")
+        points = sorted(points, key=lambda p: p.tau_direct_review)
+        x = [p.tau_direct_review for p in points]
+        ax.plot(x, [p.recall for p in points], "g-o", label="Recall")
+        ax.plot(x, [p.false_negative_rate for p in points], "r-s", label="FNR")
+        ax.plot(x, [p.wiki_false_positive_rate for p in points], "c-^", label="Wiki FPR")
+        ax.set_xlabel("tau_direct_review")
         ax.set_ylabel("Rate")
-        ax.set_title("False Negatives vs. Review Threshold")
-        ax.grid(True, alpha=0.3)
+        ax.set_title("Direct Identifier Review Threshold")
         ax.legend()
+        ax.grid(True, alpha=0.3)
 
-    # tau_block sweep
-    points = sorted(sweeps.get("tau_block_sweep", []), key=lambda p: p.tau_block)
+    # Direct block sweep
     ax = axes[0, 1]
+    points = sweeps.get("tau_direct_block_sweep", [])
     if points:
-        x = [p.tau_block for p in points]
-        y = [p.false_negative_rate for p in points]
-        recall = [p.recall for p in points]
-
-        ax.plot(x, y, marker="o", color="#e74c3c", label="False Negative Rate")
-        ax.plot(x, recall, marker="o", color="#2ecc71", label="Recall")
-        ax.set_xlabel(r"$\tau_{\mathrm{block}}$")
+        points = sorted(points, key=lambda p: p.tau_direct_block)
+        x = [p.tau_direct_block for p in points]
+        ax.plot(x, [p.recall for p in points], "g-o", label="Recall")
+        ax.plot(x, [p.false_negative_rate for p in points], "r-s", label="FNR")
+        ax.plot(x, [p.wiki_false_positive_rate for p in points], "c-^", label="Wiki FPR")
+        ax.set_xlabel("tau_direct_block")
         ax.set_ylabel("Rate")
-        ax.set_title("False Negatives vs. Block Threshold")
-        ax.grid(True, alpha=0.3)
+        ax.set_title("Direct Identifier Block Threshold")
         ax.legend()
+        ax.grid(True, alpha=0.3)
 
-    # k_min sweep
-    points = sorted(sweeps.get("k_min_sweep", []), key=lambda p: p.k_min)
+    # Quasi review sweep
     ax = axes[1, 0]
+    points = sweeps.get("tau_quasi_review_sweep", [])
     if points:
-        x = [p.k_min for p in points]
-        y = [p.false_negative_rate for p in points]
-        recall = [p.recall for p in points]
-
-        ax.plot(x, y, marker="o", color="#e74c3c", label="False Negative Rate")
-        ax.plot(x, recall, marker="o", color="#2ecc71", label="Recall")
-        ax.set_xlabel(r"$k_{\min}$")
+        points = sorted(points, key=lambda p: p.tau_quasi_review)
+        x = [p.tau_quasi_review for p in points]
+        ax.plot(x, [p.recall for p in points], "g-o", label="Recall")
+        ax.plot(x, [p.false_negative_rate for p in points], "r-s", label="FNR")
+        ax.plot(x, [p.wiki_false_positive_rate for p in points], "c-^", label="Wiki FPR")
+        ax.set_xlabel("tau_quasi_review")
         ax.set_ylabel("Rate")
-        ax.set_title("False Negatives vs. k-Minimum")
-        ax.grid(True, alpha=0.3)
+        ax.set_title("Quasi Identifier Review Threshold")
         ax.legend()
+        ax.grid(True, alpha=0.3)
 
-    # threshold grid: FNR/FPR tradeoff
-    points = sweeps.get("threshold_grid", [])
+    # Quasi block sweep
     ax = axes[1, 1]
+    points = sweeps.get("tau_quasi_block_sweep", [])
     if points:
-        x = [p.false_positive_rate for p in points]
-        y = [p.false_negative_rate for p in points]
-        c = [p.marked_sensitive_rate for p in points]
+        points = sorted(points, key=lambda p: p.tau_quasi_block)
+        x = [p.tau_quasi_block for p in points]
+        ax.plot(x, [p.recall for p in points], "g-o", label="Recall")
+        ax.plot(x, [p.false_negative_rate for p in points], "r-s", label="FNR")
+        ax.plot(x, [p.wiki_false_positive_rate for p in points], "c-^", label="Wiki FPR")
+        ax.set_xlabel("tau_quasi_block")
+        ax.set_ylabel("Rate")
+        ax.set_title("Quasi Identifier Block Threshold")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
 
-        scatter = ax.scatter(
-            x,
-            y,
-            c=c,
-            cmap="viridis",
-            alpha=0.75,
-            s=45,
+    fig.suptitle("Direct vs Quasi Identifier Threshold Effects", fontsize=14, fontweight="bold")
+    savefig(fig, output_dir, "direct_quasi_threshold_comparison.png")
+    plt.close(fig)
+
+
+def plot_k_safe_threshold_sweep(
+    points: List[OperatingPoint],
+    output_dir: Path,
+) -> None:
+    """Plot k_safe_threshold sweep results."""
+    plt = ensure_matplotlib()
+    if plt is None or not points:
+        return
+
+    points = sorted(points, key=lambda p: p.k_safe_threshold)
+    x = [p.k_safe_threshold for p in points]
+
+    fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+
+    ax = axes[0]
+    ax.plot(x, [p.recall for p in points], "g-o", label="Recall", linewidth=2)
+    ax.plot(x, [p.false_negative_rate for p in points], "r-s", label="FNR", linewidth=2)
+    ax.plot(x, [p.f1 for p in points], "b-^", label="F1", linewidth=2, alpha=0.7)
+    ax.set_ylabel("Rate / Score")
+    ax.set_title("k_safe_threshold Effect on Privacy Protection")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    ax = axes[1]
+    ax.plot(x, [p.false_positive_rate for p in points], "m-o", label="FPR", linewidth=2)
+    ax.plot(x, [p.wiki_false_positive_rate for p in points], "c-s", label="Wiki FPR", linewidth=2)
+    ax.plot(x, [p.review_rate for p in points], "y-^", label="Review Rate", linewidth=2, alpha=0.7)
+    ax.set_xlabel("k_safe_threshold")
+    ax.set_ylabel("Rate")
+    ax.set_title("k_safe_threshold Effect on False Positives")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    savefig(fig, output_dir, "k_safe_threshold_sweep.png")
+    plt.close(fig)
+
+
+def create_all_plots(
+    sweeps: Dict[str, List[OperatingPoint]],
+    output_dir: Path,
+) -> None:
+    """Create all analysis plots."""
+    print("Creating plots...")
+
+    # 1D sweeps
+    if "tau_review_sweep" in sweeps:
+        plot_1d_sweep(
+            sweeps["tau_review_sweep"],
+            "tau_review", "tau_review",
+            "Global Review Threshold",
+            output_dir, "01_tau_review_sweep.png"
         )
 
-        ax.set_xlabel("False Positive Rate")
-        ax.set_ylabel("False Negative Rate")
-        ax.set_title("False Positive vs. False Negative Tradeoff")
-        ax.grid(True, alpha=0.3)
+    if "tau_block_sweep" in sweeps:
+        plot_1d_sweep(
+            sweeps["tau_block_sweep"],
+            "tau_block", "tau_block",
+            "Global Block Threshold",
+            output_dir, "02_tau_block_sweep.png"
+        )
 
-        cbar = fig.colorbar(scatter, ax=ax)
-        cbar.set_label("Marked Sensitive Rate")
+    if "k_min_sweep" in sweeps:
+        plot_1d_sweep(
+            sweeps["k_min_sweep"],
+            "k_min", "k_min",
+            "Minimum k-Anonymity",
+            output_dir, "03_k_min_sweep.png"
+        )
 
-    fig.suptitle("False Negative Sensitivity Across Thresholds", fontsize=16)
+    if "k_safe_threshold_sweep" in sweeps:
+        plot_k_safe_threshold_sweep(
+            sweeps["k_safe_threshold_sweep"],
+            output_dir
+        )
 
-    savefig(fig, output_dir, "08_false_negative_sensitivity.png")
-    plt.close(fig)
+    # Direct/quasi comparison
+    plot_direct_quasi_comparison(sweeps, output_dir)
+
+    # 2D heatmaps
+    if "direct_threshold_grid" in sweeps:
+        plot_threshold_heatmap(
+            sweeps["direct_threshold_grid"],
+            "tau_direct_review", "tau_direct_block",
+            "tau_direct_review", "tau_direct_block",
+            "Direct Identifier Threshold Grid",
+            output_dir, "05_direct_threshold_heatmap.png"
+        )
+
+    if "quasi_threshold_grid" in sweeps:
+        plot_threshold_heatmap(
+            sweeps["quasi_threshold_grid"],
+            "tau_quasi_review", "tau_quasi_block",
+            "tau_quasi_review", "tau_quasi_block",
+            "Quasi Identifier Threshold Grid",
+            output_dir, "06_quasi_threshold_heatmap.png"
+        )
+
+    if "weight_grid" in sweeps:
+        plot_threshold_heatmap(
+            sweeps["weight_grid"],
+            "w_direct", "w_quasi",
+            "w_direct", "w_quasi",
+            "Weight Grid",
+            output_dir, "07_weight_heatmap.png"
+        )
+
+    # Pareto frontier from combined grid
+    all_points = []
+    for pts in sweeps.values():
+        all_points.extend(pts)
+    if all_points:
+        plot_pareto_frontier(all_points, output_dir)
+
+
+# ---------------------------------------------------------------------------
+# Summary and LaTeX generation
+# ---------------------------------------------------------------------------
+
+def generate_summary(
+    samples: List[PipelineSample],
+    sweeps: Dict[str, List[OperatingPoint]],
+    baseline: OperatingPoint,
+    chosen: Dict[str, OperatingPoint],
+) -> Dict[str, Any]:
+    """Generate analysis summary."""
+    wiki_samples = [s for s in samples if s.is_wikipedia()]
+
+    return {
+        "sample_summary": {
+            "total_samples": len(samples),
+            "expected_critical": sum(1 for s in samples if s.expected_critical),
+            "expected_noncritical": sum(1 for s in samples if not s.expected_critical),
+            "wikipedia_samples": len(wiki_samples),
+            "mean_direct_identifier_count": float(np.mean([s.direct_identifier_count for s in samples])),
+            "mean_quasi_identifier_count": float(np.mean([s.quasi_identifier_count for s in samples])),
+            "mean_k_lower": float(np.mean([s.k_lower for s in samples])),
+        },
+        "baseline": asdict(baseline),
+        "chosen_operating_points": {k: asdict(v) for k, v in chosen.items()},
+        "sweep_sizes": {k: len(v) for k, v in sweeps.items()},
+    }
+
+
+def generate_latex_report(
+    summary: Dict[str, Any],
+    output_dir: Path,
+) -> None:
+    """Generate LaTeX report."""
+    chosen = summary.get("chosen_operating_points", {})
+
+    latex = r"""\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{hyperref}
+
+\title{Privacy Router Threshold Analysis\\with Separate Direct/Quasi Thresholds}
+\author{Automated Analysis}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\section{Overview}
+
+This analysis evaluates the privacy router under different threshold configurations,
+including \textbf{separate thresholds for direct identifiers vs quasi-identifiers}
+and a \textbf{k\_safe\_threshold} parameter.
+
+\subsection{New Parameters}
+
+\begin{itemize}
+    \item \texttt{tau\_direct\_review}: Review threshold for direct identifier score
+    \item \texttt{tau\_direct\_block}: Block threshold for direct identifier score
+    \item \texttt{tau\_quasi\_review}: Review threshold for quasi identifier score
+    \item \texttt{tau\_quasi\_block}: Block threshold for quasi identifier score
+    \item \texttt{k\_safe\_threshold}: k-anonymity level below which review is triggered (even if above k\_min)
+\end{itemize}
+
+\subsection{Routing Logic}
+
+The routing decision follows this priority:
+\begin{enumerate}
+    \item \textbf{Block} if $k_{\text{lower}} < k_{\min}$
+    \item \textbf{Block} if direct score $\geq \tau_{\text{direct\_block}}$
+    \item \textbf{Block} if quasi score $\geq \tau_{\text{quasi\_block}}$
+    \item \textbf{Block} if combined risk $\geq \tau_{\text{block}}$
+    \item \textbf{Review} if direct score $\geq \tau_{\text{direct\_review}}$
+    \item \textbf{Review} if quasi score $\geq \tau_{\text{quasi\_review}}$
+    \item \textbf{Review} if combined risk $\geq \tau_{\text{review}}$
+    \item \textbf{Review} if $k_{\text{lower}} < k_{\text{safe\_threshold}}$
+    \item \textbf{Pass} otherwise
+\end{enumerate}
+
+\section{Dataset Summary}
+
+"""
+    ss = summary.get("sample_summary", {})
+    latex += f"""
+\\begin{{itemize}}
+    \\item Total samples: {ss.get('total_samples', 0)}
+    \\item Expected critical: {ss.get('expected_critical', 0)}
+    \\item Expected non-critical: {ss.get('expected_noncritical', 0)}
+    \\item Wikipedia samples: {ss.get('wikipedia_samples', 0)}
+    \\item Mean direct identifier count: {ss.get('mean_direct_identifier_count', 0):.2f}
+    \\item Mean quasi identifier count: {ss.get('mean_quasi_identifier_count', 0):.2f}
+    \\item Mean k\_lower: {ss.get('mean_k_lower', 0):.2f}
+\\end{{itemize}}
+
+\\section{{Selected Operating Points}}
+
+"""
+
+    for name, point in chosen.items():
+        latex += f"""
+\\subsection{{{name.replace('_', ' ').title()}}}
+
+\\begin{{tabular}}{{ll}}
+\\toprule
+Parameter & Value \\\\
+\\midrule
+tau\_direct\_review & {point.get('tau_direct_review', 0):.2f} \\\\
+tau\_direct\_block & {point.get('tau_direct_block', 0):.2f} \\\\
+tau\_quasi\_review & {point.get('tau_quasi_review', 0):.2f} \\\\
+tau\_quasi\_block & {point.get('tau_quasi_block', 0):.2f} \\\\
+k\_safe\_threshold & {point.get('k_safe_threshold', 0)} \\\\
+w\_direct & {point.get('w_direct', 0):.2f} \\\\
+w\_quasi & {point.get('w_quasi', 0):.2f} \\\\
+\\midrule
+Recall & {point.get('recall', 0):.4f} \\\\
+False Negative Rate & {point.get('false_negative_rate', 0):.4f} \\\\
+False Positive Rate & {point.get('false_positive_rate', 0):.4f} \\\\
+Wiki FPR & {point.get('wiki_false_positive_rate', 0):.4f} \\\\
+F1 & {point.get('f1', 0):.4f} \\\\
+\\bottomrule
+\\end{{tabular}}
+
+"""
+
+    latex += r"""
+\section{Plots}
+
+\subsection{Direct vs Quasi Threshold Comparison}
+\includegraphics[width=\textwidth]{direct_quasi_threshold_comparison.png}
+
+\subsection{k\_safe\_threshold Sweep}
+\includegraphics[width=\textwidth]{k_safe_threshold_sweep.png}
+
+\subsection{Pareto Frontier}
+\includegraphics[width=\textwidth]{pareto_frontier.png}
+
+\section{Interpretation}
+
+The separate direct/quasi thresholds allow finer control:
+\begin{itemize}
+    \item Direct identifiers (SSN, MRN, etc.) can have lower thresholds for aggressive protection
+    \item Quasi identifiers (age, location, etc.) can have higher thresholds to reduce Wikipedia false positives
+    \item k\_safe\_threshold adds a secondary check: even if $k > k_{\min}$, values below k\_safe trigger review
+\end{itemize}
+
+\end{document}
+"""
+
+    with open(output_dir / "latex_report.tex", "w") as f:
+        f.write(latex)
+    print("  Saved latex_report.tex")
+
 
 # ---------------------------------------------------------------------------
 # Main analysis pipeline
@@ -1192,209 +1112,146 @@ def plot_false_negative_sensitivity(
 def run_analysis(
     input_path: Path,
     output_dir: Path,
-    tau_review_min: float,
-    tau_review_max: float,
-    tau_review_step: float,
-    tau_block_min: float,
-    tau_block_max: float,
-    tau_block_step: float,
-    k_min_min: int,
-    k_min_max: int,
-    weight_min: float,
-    weight_max: float,
-    weight_step: float,
-    baseline_tau_review: float,
-    baseline_tau_block: float,
-    baseline_k_min: int,
-    baseline_w_direct: float,
-    baseline_w_quasi: float,
 ) -> None:
+    """Run complete analysis pipeline."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    samples = load_samples(input_path)
-    if not samples:
-        raise ValueError("No samples found in input file.")
+    print(f"Loading results from {input_path}...")
+    samples = load_pipeline_results(input_path)
+    print(f"  Loaded {len(samples)} samples")
 
-    tau_review_values = frange(tau_review_min, tau_review_max, tau_review_step)
-    tau_block_values = frange(tau_block_min, tau_block_max, tau_block_step)
-    k_min_values = list(range(k_min_min, k_min_max + 1))
-    weight_values = frange(weight_min, weight_max, weight_step)
+    # Define sweep ranges
+    tau_review_values = [round(x, 2) for x in np.arange(0.05, 0.55, 0.02)]
+    tau_block_values = [round(x, 2) for x in np.arange(0.50, 1.00, 0.05)]
+    k_min_values = list(range(2, 21))
+    k_safe_threshold_values = [5, 10, 15, 20, 30, 50, 75, 100, 150, 200, 1000, 10000]
 
-    sample_summary = summarize_samples(samples)
+    tau_direct_review_values = [round(x, 2) for x in np.arange(0.05, 0.50, 0.05)]
+    tau_direct_block_values = [round(x, 2) for x in np.arange(0.40, 0.95, 0.05)]
+    tau_quasi_review_values = [round(x, 2) for x in np.arange(0.10, 0.55, 0.05)]
+    tau_quasi_block_values = [round(x, 2) for x in np.arange(0.50, 0.95, 0.05)]
 
-    baseline = evaluate_operating_point(
-        samples=samples,
-        tau_review=baseline_tau_review,
-        tau_block=baseline_tau_block,
-        k_min=baseline_k_min,
-        w_direct=baseline_w_direct,
-        w_quasi=baseline_w_quasi,
-    )
+    weight_values = [round(x, 1) for x in np.arange(0.1, 1.1, 0.1)]
 
+    # Baselines
+    baseline_tau_review = 0.30
+    baseline_tau_block = 0.70
+    baseline_k_min = 5
+    baseline_k_safe_threshold = 20
+    baseline_tau_direct_review = 0.20
+    baseline_tau_direct_block = 0.60
+    baseline_tau_quasi_review = 0.30
+    baseline_tau_quasi_block = 0.70
+    baseline_w_direct = 0.50
+    baseline_w_quasi = 0.50
+
+    print("Running sweeps...")
     sweeps = run_sweeps(
         samples=samples,
         tau_review_values=tau_review_values,
         tau_block_values=tau_block_values,
         k_min_values=k_min_values,
+        k_safe_threshold_values=k_safe_threshold_values,
+        tau_direct_review_values=tau_direct_review_values,
+        tau_direct_block_values=tau_direct_block_values,
+        tau_quasi_review_values=tau_quasi_review_values,
+        tau_quasi_block_values=tau_quasi_block_values,
         weight_values=weight_values,
         baseline_tau_review=baseline_tau_review,
         baseline_tau_block=baseline_tau_block,
         baseline_k_min=baseline_k_min,
+        baseline_k_safe_threshold=baseline_k_safe_threshold,
+        baseline_tau_direct_review=baseline_tau_direct_review,
+        baseline_tau_direct_block=baseline_tau_direct_block,
+        baseline_tau_quasi_review=baseline_tau_quasi_review,
+        baseline_tau_quasi_block=baseline_tau_quasi_block,
         baseline_w_direct=baseline_w_direct,
         baseline_w_quasi=baseline_w_quasi,
     )
 
+    # Compute baseline
+    max_direct, max_quasi = compute_normalization(samples)
+    baseline = evaluate_operating_point(
+        samples=samples,
+        max_direct=max_direct,
+        max_quasi=max_quasi,
+        sweep_name="baseline",
+        tau_review=baseline_tau_review,
+        tau_block=baseline_tau_block,
+        k_min=baseline_k_min,
+        k_safe_threshold=baseline_k_safe_threshold,
+        tau_direct_review=baseline_tau_direct_review,
+        tau_direct_block=baseline_tau_direct_block,
+        tau_quasi_review=baseline_tau_quasi_review,
+        tau_quasi_block=baseline_tau_quasi_block,
+        w_direct=baseline_w_direct,
+        w_quasi=baseline_w_quasi,
+    )
+
+    # Collect all points and choose operating points
     all_points = []
-    for points in sweeps.values():
-        all_points.extend(points)
+    for pts in sweeps.values():
+        all_points.extend(pts)
 
     chosen = choose_operating_points(all_points)
 
-    # Write machine-readable outputs.
-    sweep_json = {
-        name: [asdict(p) for p in points]
-        for name, points in sweeps.items()
-    }
+    # Create plots
+    create_all_plots(sweeps, output_dir)
 
+    # Generate summary
+    summary = generate_summary(samples, sweeps, baseline, chosen)
+
+    # Write outputs
+    write_json(output_dir / "analysis_summary.json", summary)
+
+    sweep_json = {k: [asdict(p) for p in v] for k, v in sweeps.items()}
     write_json(output_dir / "threshold_sweep_results.json", sweep_json)
 
-    summary_json = {
-        "sample_summary": sample_summary,
-        "baseline": asdict(baseline),
-        "chosen_operating_points": {
-            name: asdict(point) if point is not None else None
-            for name, point in chosen.items()
-        },
-        "sweep_config": {
-            "tau_review_values": tau_review_values,
-            "tau_block_values": tau_block_values,
-            "k_min_values": k_min_values,
-            "weight_values": weight_values,
-            "baseline_tau_review": baseline_tau_review,
-            "baseline_tau_block": baseline_tau_block,
-            "baseline_k_min": baseline_k_min,
-            "baseline_w_direct": baseline_w_direct,
-            "baseline_w_quasi": baseline_w_quasi,
-        },
-    }
+    generate_latex_report(summary, output_dir)
 
-    write_json(output_dir / "analysis_summary.json", summary_json)
+    print(f"\nAnalysis complete. Results in {output_dir}/")
 
-    # Plots.
-    plot_threshold_phase_diagram(sweeps["threshold_grid"], output_dir)
-    plot_precision_recall_curves(sweeps, output_dir)
-    plot_privacy_false_positive_tradeoff(sweeps["threshold_grid"], output_dir)
-    plot_k_minimum_sensitivity(sweeps["k_min_sweep"], output_dir)
-    plot_weight_sensitivity_heatmaps(sweeps["weight_grid"], output_dir)
-    plot_operating_point_breakdown(chosen, output_dir)
-    plot_wikipedia_false_positive_analysis(sweeps["threshold_grid"], output_dir)
-    plot_false_negative_sensitivity(sweeps, output_dir)
+    # Print key findings
+    print("\n" + "=" * 60)
+    print("KEY FINDINGS")
+    print("=" * 60)
 
-    print()
-    print("=" * 72)
-    print("ANALYSIS COMPLETE")
-    print("=" * 72)
-    print(f"Input:  {input_path}")
-    print(f"Output: {output_dir}")
-    print()
-    print("Baseline:")
-    print(f"  tau_review: {baseline.tau_review:.2f}")
-    print(f"  tau_block:  {baseline.tau_block:.2f}")
-    print(f"  k_min:      {baseline.k_min}")
-    print(f"  w_direct:   {baseline.w_direct:.2f}")
-    print(f"  w_quasi:    {baseline.w_quasi:.2f}")
-    print(f"  precision:  {baseline.precision:.3f}")
-    print(f"  recall:     {baseline.recall:.3f}")
-    print(f"  f1:         {baseline.f1:.3f}")
-    print(f"  fpr:        {baseline.false_positive_rate:.3f}")
-    print(f"  marked:     {baseline.marked_sensitive_rate:.3f}")
-    print()
+    print(f"\nBaseline (FNR={baseline.false_negative_rate:.3f}, Wiki FPR={baseline.wiki_false_positive_rate:.3f}):")
+    print(f"  tau_direct_review={baseline.tau_direct_review}, tau_direct_block={baseline.tau_direct_block}")
+    print(f"  tau_quasi_review={baseline.tau_quasi_review}, tau_quasi_block={baseline.tau_quasi_block}")
+    print(f"  k_safe_threshold={baseline.k_safe_threshold}")
 
     for name, point in chosen.items():
-        if point is None:
-            continue
-        print(f"{name}:")
-        print(f"  tau_review={point.tau_review:.2f}, tau_block={point.tau_block:.2f}, "
-              f"k_min={point.k_min}, w_direct={point.w_direct:.2f}, "
-              f"w_quasi={point.w_quasi:.2f}")
-        print(f"  precision={point.precision:.3f}, recall={point.recall:.3f}, "
-              f"f1={point.f1:.3f}, fpr={point.false_positive_rate:.3f}, "
-              f"marked={point.marked_sensitive_rate:.3f}")
-        if point.wiki_false_positive_rate is not None:
-            print(f"  wiki_marked_sensitive_rate={point.wiki_false_positive_rate:.3f}")
-        print()
+        print(f"\n{name}:")
+        print(f"  Recall={point.recall:.3f}, FNR={point.false_negative_rate:.3f}, Wiki FPR={point.wiki_false_positive_rate:.3f}")
+        print(f"  tau_direct: review={point.tau_direct_review}, block={point.tau_direct_block}")
+        print(f"  tau_quasi: review={point.tau_quasi_review}, block={point.tau_quasi_block}")
+        print(f"  k_safe_threshold={point.k_safe_threshold}")
 
 
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser(
-        description="Analyze threshold sensitivity for privacy routing benchmark outputs."
+        description="Analyze privacy router benchmark results with threshold sweeps"
     )
-
     parser.add_argument(
-        "-i",
-        "--input",
+        "-i", "--input",
         type=Path,
-        default=Path("pipeline_results.json"),
-        help="Path to pipeline_results.json.",
+        required=True,
+        help="Path to pipeline_results.json"
     )
-
     parser.add_argument(
-        "-o",
-        "--output-dir",
+        "-o", "--output",
         type=Path,
         default=Path("analysis_outputs"),
-        help="Directory for plots and analysis outputs.",
+        help="Output directory for analysis results"
     )
-
-    # Requested threshold ranges.
-    parser.add_argument("--tau-review-min", type=float, default=0.01)
-    parser.add_argument("--tau-review-max", type=float, default=0.50)
-    parser.add_argument("--tau-review-step", type=float, default=0.02)
-
-    parser.add_argument("--tau-block-min", type=float, default=0.50)
-    parser.add_argument("--tau-block-max", type=float, default=0.95)
-    parser.add_argument("--tau-block-step", type=float, default=0.05)
-
-    parser.add_argument("--k-min-min", type=int, default=2)
-    parser.add_argument("--k-min-max", type=int, default=20)
-
-    parser.add_argument("--weight-min", type=float, default=0.1)
-    parser.add_argument("--weight-max", type=float, default=1.0)
-    parser.add_argument("--weight-step", type=float, default=0.1)
-
-    # Baseline values used when a parameter family is not being swept.
-    parser.add_argument("--baseline-tau-review", type=float, default=0.30)
-    parser.add_argument("--baseline-tau-block", type=float, default=0.70)
-    parser.add_argument("--baseline-k-min", type=int, default=5)
-    parser.add_argument("--baseline-w-direct", type=float, default=0.50)
-    parser.add_argument("--baseline-w-quasi", type=float, default=0.50)
-
     args = parser.parse_args()
 
-    run_analysis(
-        input_path=args.input,
-        output_dir=args.output_dir,
-        tau_review_min=args.tau_review_min,
-        tau_review_max=args.tau_review_max,
-        tau_review_step=args.tau_review_step,
-        tau_block_min=args.tau_block_min,
-        tau_block_max=args.tau_block_max,
-        tau_block_step=args.tau_block_step,
-        k_min_min=args.k_min_min,
-        k_min_max=args.k_min_max,
-        weight_min=args.weight_min,
-        weight_max=args.weight_max,
-        weight_step=args.weight_step,
-        baseline_tau_review=args.baseline_tau_review,
-        baseline_tau_block=args.baseline_tau_block,
-        baseline_k_min=args.baseline_k_min,
-        baseline_w_direct=args.baseline_w_direct,
-        baseline_w_quasi=args.baseline_w_quasi,
-    )
+    if not args.input.exists():
+        print(f"Error: Input file not found: {args.input}", file=sys.stderr)
+        sys.exit(1)
+
+    run_analysis(args.input, args.output)
 
 
 if __name__ == "__main__":
