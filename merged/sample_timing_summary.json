@@ -1,0 +1,74 @@
+[
+  {
+    "sample_name": "wiki_237 (difficulty=0, Wikipedia article)",
+    "expected_critical": false,
+    "tier": 3,
+    "tier_name": "TIER_3_LOCAL",
+    "total_time_seconds": 10.645975,
+    "masking_ratio": 0.00536,
+    "k_lower": 5.220956
+  },
+  {
+    "sample_name": "RAT-30 (difficulty=2, Chatbot conversation)",
+    "expected_critical": true,
+    "tier": 3,
+    "tier_name": "TIER_3_LOCAL",
+    "total_time_seconds": 3.293179,
+    "masking_ratio": 0.00045,
+    "k_lower": 1.200335
+  },
+  {
+    "sample_name": "RAT-12 (difficulty=3, Medical consultation)",
+    "expected_critical": true,
+    "tier": 2,
+    "tier_name": "TIER_2_CLOUD_MASKED",
+    "total_time_seconds": 0.601632,
+    "masking_ratio": 0.016074,
+    "k_lower": 65.585763
+  },
+  {
+    "sample_name": "wiki_129 (difficulty=0, Wikipedia article)",
+    "expected_critical": false,
+    "tier": 2,
+    "tier_name": "TIER_2_CLOUD_MASKED",
+    "total_time_seconds": 0.250692,
+    "masking_ratio": 0.003956,
+    "k_lower": 131.171526
+  },
+  {
+    "sample_name": "wiki_4 (difficulty=0, Wikipedia article)",
+    "expected_critical": false,
+    "tier": 2,
+    "tier_name": "TIER_2_CLOUD_MASKED",
+    "total_time_seconds": 0.162787,
+    "masking_ratio": -0.002226,
+    "k_lower": 131.171526
+  },
+  {
+    "sample_name": "wiki_300 (difficulty=0, Wikipedia article)",
+    "expected_critical": false,
+    "tier": 2,
+    "tier_name": "TIER_2_CLOUD_MASKED",
+    "total_time_seconds": 0.162035,
+    "masking_ratio": -0.008412,
+    "k_lower": 131.171526
+  },
+  {
+    "sample_name": "wiki_166 (difficulty=0, Wikipedia article)",
+    "expected_critical": false,
+    "tier": 2,
+    "tier_name": "TIER_2_CLOUD_MASKED",
+    "total_time_seconds": 0.152492,
+    "masking_ratio": 0.0,
+    "k_lower": 131.171526
+  },
+  {
+    "sample_name": "wiki_125 (difficulty=0, Wikipedia article)",
+    "expected_critical": false,
+    "tier": 2,
+    "tier_name": "TIER_2_CLOUD_MASKED",
+    "total_time_seconds": 0.132682,
+    "masking_ratio": -0.001068,
+    "k_lower": 57.231368
+  }
+]
