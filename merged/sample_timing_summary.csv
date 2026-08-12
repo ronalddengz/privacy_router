@@ -1,9 +1,0 @@
-sample_name,expected_critical,tier,tier_name,total_time_seconds,masking_ratio,k_lower
-"wiki_237 (difficulty=0, Wikipedia article)",False,3,TIER_3_LOCAL,10.645975,0.00536,5.220956
-"RAT-30 (difficulty=2, Chatbot conversation)",True,3,TIER_3_LOCAL,3.293179,0.00045,1.200335
-"RAT-12 (difficulty=3, Medical consultation)",True,2,TIER_2_CLOUD_MASKED,0.601632,0.016074,65.585763
-"wiki_129 (difficulty=0, Wikipedia article)",False,2,TIER_2_CLOUD_MASKED,0.250692,0.003956,131.171526
-"wiki_4 (difficulty=0, Wikipedia article)",False,2,TIER_2_CLOUD_MASKED,0.162787,-0.002226,131.171526
-"wiki_300 (difficulty=0, Wikipedia article)",False,2,TIER_2_CLOUD_MASKED,0.162035,-0.008412,131.171526
-"wiki_166 (difficulty=0, Wikipedia article)",False,2,TIER_2_CLOUD_MASKED,0.152492,0.0,131.171526
-"wiki_125 (difficulty=0, Wikipedia article)",False,2,TIER_2_CLOUD_MASKED,0.132682,-0.001068,57.231368
