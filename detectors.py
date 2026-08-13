@@ -738,10 +738,11 @@ class QIDetector:
         detector: str,
         confidence: float,
         is_unseen: bool = False,
-        span_start: Optional[int] = None,  # Added
-        span_end: Optional[int] = None,    # Added
+        span_start: Optional[int] = None,
+        span_end: Optional[int] = None,
     ) -> None:
-        evidence.append(QIEvidence(
+        # 1. Instantiate QIEvidence using only supported __init__ fields
+        qi = QIEvidence(
             qi_type=qi_type,
             normalized_value=normalized_value,
             granularity=granularity,
@@ -749,9 +750,15 @@ class QIDetector:
             detector_version=self.VERSION,
             extraction_confidence=confidence,
             is_unseen_value=is_unseen,
-            span_start=span_start,  # Ensure QIEvidence dataclass accepts span_start
-            span_end=span_end,      # Ensure QIEvidence dataclass accepts span_end
-        ))
+        )
+        
+        # 2. Attach span positions dynamically
+        if span_start is not None:
+            qi.span_start = span_start
+        if span_end is not None:
+            qi.span_end = span_end
+
+        evidence.append(qi)
     
     def detect(self, text: str) -> list[QIEvidence]:
         """Detect quasi-identifiers in text with proper normalization."""

@@ -123,6 +123,9 @@ class QIEvidence:
     frequency_upper_bound: Optional[float] = None
     is_unseen_value: bool = False  # Value not in reference data
 
+    span_start: Optional[int] = None  # Add this
+    span_end: Optional[int] = None    # Add this
+
 
 @dataclass
 class JointRiskEstimate:
