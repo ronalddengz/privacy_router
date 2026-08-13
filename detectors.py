@@ -679,6 +679,38 @@ class QIDetector:
         'biracial': 'two_or_more_races',
     }
 
+    def redact_qi_text(self, text: str, qi_evidences: list, mask_format="category") -> str:
+        """
+        Redacts detected quasi-identifiers from the text using detected QIEvidence offsets.
+        
+        :param text: Original raw text string.
+        :param qi_evidences: List of QIEvidence objects containing start_char, end_char, entity_type/category.
+        :param mask_format: "category" for [LOCATION] or "generic" for [REDACTED_QI].
+        """
+        if not qi_evidences:
+            return text
+
+        # 1. Sort evidence spans in REVERSE order by start_char
+        # This prevents character shift issues during string replacement.
+        sorted_evidences = sorted(
+            qi_evidences, 
+            key=lambda ev: ev.start_char, 
+            reverse=True
+        )
+
+        redacted_text = text
+        for ev in sorted_evidences:
+            start = ev.start_char
+            end = ev.end_char
+            
+            # Choose placeholder label
+            placeholder = f"[{ev.entity_type.upper()}]" if mask_format == "category" else "[REDACTED_QI]"
+            
+            # Replace character slice
+            redacted_text = redacted_text[:start] + placeholder + redacted_text[end:]
+
+        return redacted_text
+
     
     def __init__(self):
         self.nlp = self._load_spacy_model()
