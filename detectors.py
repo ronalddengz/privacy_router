@@ -127,6 +127,8 @@ class PIIDetector:
     def _categorize_entity(self, entity_type: str, policy: PolicyProfile) -> EntityCategory:
         if entity_type in policy.direct_identifier_types:
             return EntityCategory.DIRECT_IDENTIFIER
+        elif entity_type in {"PERSON", "EMAIL_ADDRESS", "PHONE_NUMBER"}:
+            return EntityCategory.STRONG_IDENTIFIER
         elif entity_type in {"LOCATION", "GPE", "LOC", "ORGANIZATION", "ORG", "FAC", "DATE_TIME"}:
             return EntityCategory.CONTEXTUAL
         else:
