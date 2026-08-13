@@ -10,7 +10,7 @@ Implements the pipeline:
 """
 
 import hashlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 from typing import Optional
 from datetime import datetime
 from pathlib import Path
@@ -39,6 +39,13 @@ class RoutingResult:
     contextual_evidence: Optional[ContextualEvidence] = None
     gate_features: Optional[GateFeatures] = None
     llm_time: float = 0.0
+
+    @property
+    def llm_judgment(self) -> Optional[dict]:
+        """Dynamically return contextual_evidence as a dict or None."""
+        if self.contextual_evidence is None:
+            return None
+        return asdict(self.contextual_evidence)
 
 
 class PrivacyRouter:

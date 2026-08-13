@@ -156,7 +156,7 @@ class PIIDetector:
         """
         evidence = []
         
-        # Presidio detection
+        # detectors.py -> PIIDetector.detect()
         if self.analyzer is not None:
             try:
                 presidio_results = self.analyzer.analyze(
@@ -167,19 +167,18 @@ class PIIDetector:
 
                 for r in presidio_results:
                     category = self._categorize_entity(r.entity_type, policy)
-                    # detectors.py (Current QIEvidence creation)
-                    evidence.append(QIEvidence(
-                        qi_type=qi_type,
-                        normalized_value=normalized_value, # e.g., "ehlers_danlos"
-                        granularity=granularity,
-                        detector=detector,
+                    evidence.append(PIIEvidence(
+                        entity_type=r.entity_type,
+                        category=category,
+                        span_start=r.start,
+                        span_end=r.end,
+                        detector="presidio",
                         detector_version=self.VERSION,
-                        extraction_confidence=confidence,
-                        is_unseen_value=is_unseen,
-                        # Notice: span_start and span_end are missing!
+                        raw_detector_score=r.score,
+                        calibrated_probability=None,
                     ))
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[Warning] Presidio detection error: {e}")
         
         # Custom pattern detection
         custom_results = self._detect_custom_patterns(text)
