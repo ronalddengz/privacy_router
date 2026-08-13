@@ -125,10 +125,9 @@ class PIIDetector:
         return None
     
     def _categorize_entity(self, entity_type: str, policy: PolicyProfile) -> EntityCategory:
-        """Categorize entity type for policy routing."""
         if entity_type in policy.direct_identifier_types:
             return EntityCategory.DIRECT_IDENTIFIER
-        elif entity_type in {"LOCATION", "DATE_TIME", "ORGANIZATION"}:
+        elif entity_type in {"LOCATION", "GPE", "LOC", "ORGANIZATION", "ORG", "FAC", "DATE_TIME"}:
             return EntityCategory.CONTEXTUAL
         else:
             return EntityCategory.QUASI_IDENTIFIER
@@ -168,15 +167,16 @@ class PIIDetector:
 
                 for r in presidio_results:
                     category = self._categorize_entity(r.entity_type, policy)
-                    evidence.append(PIIEvidence(
-                        entity_type=r.entity_type,
-                        category=category,
-                        span_start=r.start,
-                        span_end=r.end,
-                        detector="presidio",
+                    # detectors.py (Current QIEvidence creation)
+                    evidence.append(QIEvidence(
+                        qi_type=qi_type,
+                        normalized_value=normalized_value, # e.g., "ehlers_danlos"
+                        granularity=granularity,
+                        detector=detector,
                         detector_version=self.VERSION,
-                        raw_detector_score=r.score,
-                        calibrated_probability=None,
+                        extraction_confidence=confidence,
+                        is_unseen_value=is_unseen,
+                        # Notice: span_start and span_end are missing!
                     ))
             except Exception:
                 pass

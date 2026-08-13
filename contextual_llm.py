@@ -199,8 +199,8 @@ Text to analyze:
                 evidence.relationship_confidence,
                 evidence.inferential_confidence,
             ]
-            if all(c < 0.3 for c in all_confidences) and evidence.overall_confidence < 0.3:
-                evidence.model_abstained = True
+            #if all(c < 0.3 for c in all_confidences) and evidence.overall_confidence < 0.3:
+            #    evidence.model_abstained = True
             
         except json.JSONDecodeError:
             evidence.parsing_error = True
