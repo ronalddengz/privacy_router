@@ -736,6 +736,8 @@ class QIDetector:
         detector: str,
         confidence: float,
         is_unseen: bool = False,
+        span_start: Optional[int] = None,  # Added
+        span_end: Optional[int] = None,    # Added
     ) -> None:
         evidence.append(QIEvidence(
             qi_type=qi_type,
@@ -745,6 +747,8 @@ class QIDetector:
             detector_version=self.VERSION,
             extraction_confidence=confidence,
             is_unseen_value=is_unseen,
+            span_start=span_start,  # Ensure QIEvidence dataclass accepts span_start
+            span_end=span_end,      # Ensure QIEvidence dataclass accepts span_end
         ))
     
     def detect(self, text: str) -> list[QIEvidence]:
@@ -768,6 +772,8 @@ class QIDetector:
                             granularity="5yr_bucket",
                             detector="pattern",
                             confidence=0.9,
+                            span_start=match.start(),
+                            span_end=match.end(),
                         )
                 except ValueError:
                     pass
@@ -785,6 +791,8 @@ class QIDetector:
                         granularity="binary",
                         detector="pattern",
                         confidence=0.85,
+                        span_start=match.start(),
+                        span_end=match.end(),   
                     )
         
         # === 3. MARITAL STATUS DETECTION ===
@@ -799,6 +807,8 @@ class QIDetector:
                         granularity="marital_status",
                         detector="pattern",
                         confidence=0.80,
+                        span_start=match.start(),
+                        span_end=match.end(),
                     )
                 else:
                     raw_value = match.group(1).lower().strip()
@@ -811,6 +821,8 @@ class QIDetector:
                             granularity="marital_status",
                             detector="pattern",
                             confidence=0.82,
+                            span_start=match.start(),
+                            span_end=match.end(),
                         )
         
         # === 4. CITIZENSHIP DETECTION ===
@@ -823,6 +835,8 @@ class QIDetector:
                     granularity="citizenship_status",
                     detector="pattern",
                     confidence=0.85,
+                    span_start=match.start(),
+                    span_end=match.end(),
                 )
         
         # === 5. RACE/ETHNICITY DETECTION ===
@@ -840,6 +854,8 @@ class QIDetector:
                 granularity="census_race_ethnicity",
                 detector="pattern",
                 confidence=0.78,
+                span_start=match.start(),
+                span_end=match.end(),
                 is_unseen=is_unseen,
             )
         
@@ -854,6 +870,8 @@ class QIDetector:
                     granularity="state",
                     detector="gazetteer",
                     confidence=0.88,
+                    span_start=match.start(),
+                    span_end=match.end(),
                 )
         
         # 6b. Two-letter state codes in context
@@ -867,6 +885,8 @@ class QIDetector:
                     granularity="state",
                     detector="pattern",
                     confidence=0.75,
+                    span_start=match.start(),
+                    span_end=match.end(),
                 )
         
         # 6c. spaCy NER for locations
@@ -884,6 +904,8 @@ class QIDetector:
                                 granularity="state",
                                 detector="spacy_ner",
                                 confidence=0.7,
+                                span_start=ent.start_char,
+                                span_end=ent.end_char,
                             )
             except Exception:
                 pass
@@ -902,6 +924,8 @@ class QIDetector:
                     granularity="occupation_broad",
                     detector="keyword",
                     confidence=0.80,
+                    span_start=match.start(),
+                    span_end=match.end(),
                 )
                 occupation_detected = True
                 break  # Take first match
@@ -916,6 +940,8 @@ class QIDetector:
                     granularity="full_date",
                     detector="pattern",
                     confidence=0.85,
+                    span_start=match.start(),
+                    span_end=match.end(),
                 )
 
         # === 9. TIME DETECTION ===
@@ -928,6 +954,8 @@ class QIDetector:
                     granularity="time_of_day",
                     detector="pattern",
                     confidence=0.80,
+                    span_start=match.start(),
+                    span_end=match.end(),
                 )
 
         # === 10. DATETIME DETECTION (combined) ===
@@ -940,6 +968,8 @@ class QIDetector:
                     granularity="full_datetime",
                     detector="pattern",
                     confidence=0.90,
+                    span_start=match.start(),
+                    span_end=match.end(),
                 )
         
         # Check for rare occupations specifically
@@ -952,6 +982,8 @@ class QIDetector:
                     granularity="specific_occupation",
                     detector="gazetteer",
                     confidence=0.85,
+                    span_start=text_lower.find(term),
+                    span_end=text_lower.find(term) + len(term),
                 )
         
         # === 8. RARE DISEASE DETECTION ===
@@ -964,6 +996,8 @@ class QIDetector:
                     granularity="specific_disease",
                     detector="gazetteer",
                     confidence=0.85,
+                    span_start=match.start(),
+                    span_end=match.end(),
                 )
         
         # === 9. DATE DETECTION (unchanged) ===
@@ -976,6 +1010,8 @@ class QIDetector:
                     granularity="exact_date",
                     detector="pattern",
                     confidence=0.85,
+                    span_start=match.start(),
+                    span_end=match.end(),
                 )
 
         # === EDUCATION DETECTION ===
@@ -988,6 +1024,8 @@ class QIDetector:
                     granularity="education_level",
                     detector="pattern",
                     confidence=0.80,
+                    span_start=match.start(),
+                    span_end=match.end(),
                 )
                 break  # One education level per text
         
@@ -1001,6 +1039,8 @@ class QIDetector:
                     granularity="employment_status",
                     detector="pattern",
                     confidence=0.82,
+                    span_start=match.start(),
+                    span_end=match.end(),
                 )
                 break  # One employment status per text
         
