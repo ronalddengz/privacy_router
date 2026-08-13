@@ -864,6 +864,403 @@ def create_sweep_plots(sweeps: Dict[str, List[OperatingPoint]], output_dir: Path
     for param_name, points in sweeps.items():
         plot_param_sweep(points, param_name, output_dir)
 
+# =============================================================================
+# Ablation Study: Effect of PII and QI Detectors
+# =============================================================================
+
+@dataclass
+class AblationResult:
+    """Result from an ablation experiment."""
+    condition: str  # "full", "no_pii", "no_qi", "no_detectors"
+    description: str
+    
+    precision: float = 0.0
+    recall: float = 0.0
+    f1: float = 0.0
+    specificity: float = 0.0
+    false_positive_rate: float = 0.0
+    false_negative_rate: float = 0.0
+    
+    true_positive: int = 0
+    false_positive: int = 0
+    true_negative: int = 0
+    false_negative: int = 0
+    
+    tier_1_rate: float = 0.0
+    tier_2_rate: float = 0.0
+    tier_3_rate: float = 0.0
+    
+    mean_combined_risk: float = 0.0
+
+
+def simulate_routing_ablation(
+    result: PipelineResult,
+    max_direct: float,
+    max_quasi: float,
+    tau_review: float,
+    tau_block: float,
+    k_min: int,
+    k_lower_threshold: float,
+    w_direct: float,
+    w_quasi: float,
+    use_pii: bool = True,
+    use_qi: bool = True,
+) -> Tuple[bool, bool, bool, float]:
+    """
+    Simulate a routing decision with optional ablation of PII/QI detectors.
+    
+    Args:
+        use_pii: If False, zero out direct identifier contributions
+        use_qi: If False, zero out quasi identifier contributions
+    
+    Returns: (marked_sensitive, is_review, is_block, combined_risk)
+    """
+    # Apply ablation: zero out the detector outputs if disabled
+    direct_count = result.direct_identifier_count if use_pii else 0
+    quasi_count = result.quasi_identifier_count if use_qi else 0
+    
+    direct_score = direct_count / max_direct if max_direct > 0 else 0.0
+    quasi_score = quasi_count / max_quasi if max_quasi > 0 else 0.0
+    
+    # If both detectors are disabled, base risk only comes from k-anonymity
+    base_risk = result.joint_risk_score if (use_pii or use_qi) else 0.0
+    
+    combined_risk = float(np.clip(
+        base_risk + w_direct * direct_score + w_quasi * quasi_score, 
+        0.0, 
+        1.0
+    ))
+    
+    k_lower = result.k_lower if result.k_lower is not None else 0.0
+    
+    # Hard block: k-anonymity below the minimum (only if we have k-anonymity info)
+    if use_pii or use_qi:  # k-anonymity depends on detected identifiers
+        if k_lower < k_min:
+            return True, False, True, combined_risk
+    
+    # Block: combined risk above the block threshold
+    if combined_risk >= tau_block:
+        return True, False, True, combined_risk
+    
+    # Review: combined risk above the review threshold
+    if combined_risk >= tau_review:
+        return True, True, False, combined_risk
+    
+    # Review: k-anonymity below safe threshold
+    if (use_pii or use_qi) and k_lower < k_lower_threshold:
+        return True, True, False, combined_risk
+    
+    return False, False, False, combined_risk
+
+
+def evaluate_ablation_condition(
+    results: List[PipelineResult],
+    max_direct: float,
+    max_quasi: float,
+    tau_review: float,
+    tau_block: float,
+    k_min: int,
+    k_lower_threshold: float,
+    w_direct: float,
+    w_quasi: float,
+    condition: str,
+    use_pii: bool,
+    use_qi: bool,
+) -> AblationResult:
+    """Evaluate performance metrics for a single ablation condition."""
+    tp = fp = tn = fn = 0
+    tier_1 = tier_2 = tier_3 = 0
+    combined_risks = []
+    
+    for r in results:
+        marked, is_review, is_block, combined_risk = simulate_routing_ablation(
+            r, max_direct, max_quasi, tau_review, tau_block, 
+            k_min, k_lower_threshold, w_direct, w_quasi,
+            use_pii=use_pii, use_qi=use_qi
+        )
+        combined_risks.append(combined_risk)
+        actual = r.expected_critical
+        
+        if marked and actual:
+            tp += 1
+        elif marked and not actual:
+            fp += 1
+        elif not marked and not actual:
+            tn += 1
+        else:
+            fn += 1
+        
+        # Simulate tier assignment based on routing
+        if is_block:
+            tier_3 += 1
+        elif is_review:
+            tier_2 += 1
+        else:
+            tier_1 += 1
+    
+    total = len(results)
+    precision = _safe_div(tp, tp + fp)
+    recall = _safe_div(tp, tp + fn)
+    f1 = _safe_div(2 * precision * recall, precision + recall)
+    specificity = _safe_div(tn, tn + fp)
+    fpr = _safe_div(fp, fp + tn)
+    fnr = _safe_div(fn, fn + tp)
+    
+    descriptions = {
+        "full": "Full system (PII + QI detectors)",
+        "no_pii": "QI detector only (PII disabled)",
+        "no_qi": "PII detector only (QI disabled)",
+        "no_detectors": "No detectors (baseline)",
+    }
+    
+    return AblationResult(
+        condition=condition,
+        description=descriptions.get(condition, condition),
+        precision=precision,
+        recall=recall,
+        f1=f1,
+        specificity=specificity,
+        false_positive_rate=fpr,
+        false_negative_rate=fnr,
+        true_positive=tp,
+        false_positive=fp,
+        true_negative=tn,
+        false_negative=fn,
+        tier_1_rate=_safe_div(tier_1, total),
+        tier_2_rate=_safe_div(tier_2, total),
+        tier_3_rate=_safe_div(tier_3, total),
+        mean_combined_risk=float(np.mean(combined_risks)) if combined_risks else 0.0,
+    )
+
+
+def run_ablation_study(
+    results: List[PipelineResult],
+    tau_review: float,
+    tau_block: float,
+    k_min: int,
+    k_lower_threshold: float,
+    w_direct: float,
+    w_quasi: float,
+) -> Dict[str, AblationResult]:
+    """
+    Run ablation study to measure the contribution of PII and QI detectors.
+    
+    Tests four conditions:
+    1. full: Both PII and QI detectors enabled (baseline)
+    2. no_pii: Only QI detector enabled (PII detector ablated)
+    3. no_qi: Only PII detector enabled (QI detector ablated)
+    4. no_detectors: Both detectors disabled (null baseline)
+    """
+    max_direct, max_quasi = compute_normalization(results)
+    
+    ablation_configs = [
+        ("full", True, True),
+        ("no_pii", False, True),
+        ("no_qi", True, False),
+        ("no_detectors", False, False),
+    ]
+    
+    ablation_results = {}
+    for condition, use_pii, use_qi in ablation_configs:
+        ablation_results[condition] = evaluate_ablation_condition(
+            results, max_direct, max_quasi,
+            tau_review, tau_block, k_min, k_lower_threshold,
+            w_direct, w_quasi,
+            condition, use_pii, use_qi
+        )
+    
+    return ablation_results
+
+
+def plot_ablation_study(ablation_results: Dict[str, AblationResult], output_dir: Path) -> None:
+    """Create visualization plots for the ablation study results."""
+    conditions = ["full", "no_pii", "no_qi", "no_detectors"]
+    labels = [
+        "Full System\n(PII + QI)",
+        "QI Only\n(No PII)",
+        "PII Only\n(No QI)",
+        "No Detectors\n(Baseline)"
+    ]
+    
+    # Extract metrics
+    precisions = [ablation_results[c].precision for c in conditions]
+    recalls = [ablation_results[c].recall for c in conditions]
+    f1s = [ablation_results[c].f1 for c in conditions]
+    fprs = [ablation_results[c].false_positive_rate for c in conditions]
+    fnrs = [ablation_results[c].false_negative_rate for c in conditions]
+    
+    # Create figure with subplots
+    fig, axes = plt.subplots(2, 2, figsize=(14, 12))
+    fig.suptitle("Ablation Study: Effect of PII and QI Detectors", fontsize=14, fontweight="bold")
+    
+    x = np.arange(len(conditions))
+    width = 0.25
+    
+    # Plot 1: Precision, Recall, F1 comparison
+    ax = axes[0, 0]
+    bars1 = ax.bar(x - width, precisions, width, label="Precision", color="#3498db", alpha=0.8)
+    bars2 = ax.bar(x, recalls, width, label="Recall", color="#2ecc71", alpha=0.8)
+    bars3 = ax.bar(x + width, f1s, width, label="F1", color="#9b59b6", alpha=0.8)
+    ax.set_ylabel("Score")
+    ax.set_title("Classification Performance by Condition")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=9)
+    ax.legend(loc="upper right")
+    ax.set_ylim(0, 1.1)
+    ax.grid(axis="y", alpha=0.3)
+    # Add value labels on bars
+    for bars in [bars1, bars2, bars3]:
+        for bar in bars:
+            height = bar.get_height()
+            ax.annotate(f'{height:.2f}', xy=(bar.get_x() + bar.get_width() / 2, height),
+                       xytext=(0, 3), textcoords="offset points", ha='center', va='bottom', fontsize=8)
+    
+    # Plot 2: FPR and FNR comparison
+    ax = axes[0, 1]
+    bars1 = ax.bar(x - width/2, fprs, width, label="False Positive Rate", color="#e74c3c", alpha=0.8)
+    bars2 = ax.bar(x + width/2, fnrs, width, label="False Negative Rate", color="#f39c12", alpha=0.8)
+    ax.set_ylabel("Rate")
+    ax.set_title("Error Rates by Condition")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=9)
+    ax.legend(loc="upper right")
+    ax.set_ylim(0, 1.1)
+    ax.grid(axis="y", alpha=0.3)
+    for bars in [bars1, bars2]:
+        for bar in bars:
+            height = bar.get_height()
+            ax.annotate(f'{height:.2f}', xy=(bar.get_x() + bar.get_width() / 2, height),
+                       xytext=(0, 3), textcoords="offset points", ha='center', va='bottom', fontsize=8)
+    
+    # Plot 3: Tier distribution stacked bar
+    ax = axes[1, 0]
+    tier_1_rates = [ablation_results[c].tier_1_rate * 100 for c in conditions]
+    tier_2_rates = [ablation_results[c].tier_2_rate * 100 for c in conditions]
+    tier_3_rates = [ablation_results[c].tier_3_rate * 100 for c in conditions]
+    
+    ax.bar(x, tier_1_rates, width=0.6, label="Tier 1 (Cloud Original)", color="#2ecc71", alpha=0.8)
+    ax.bar(x, tier_2_rates, width=0.6, bottom=tier_1_rates, label="Tier 2 (Cloud Masked)", color="#f39c12", alpha=0.8)
+    ax.bar(x, tier_3_rates, width=0.6, bottom=[t1 + t2 for t1, t2 in zip(tier_1_rates, tier_2_rates)], 
+           label="Tier 3 (Local)", color="#e74c3c", alpha=0.8)
+    ax.set_ylabel("Percentage (%)")
+    ax.set_title("Tier Distribution by Condition")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=9)
+    ax.legend(loc="upper right")
+    ax.set_ylim(0, 110)
+    ax.grid(axis="y", alpha=0.3)
+    
+    # Plot 4: Delta from full system (contribution analysis)
+    ax = axes[1, 1]
+    full_f1 = ablation_results["full"].f1
+    deltas = [(ablation_results[c].f1 - full_f1) * 100 for c in conditions]
+    colors = ["#3498db" if d >= 0 else "#e74c3c" for d in deltas]
+    bars = ax.bar(x, deltas, width=0.6, color=colors, alpha=0.8)
+    ax.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
+    ax.set_ylabel("F1 Change (%)")
+    ax.set_title("F1 Score Change vs Full System")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=9)
+    ax.grid(axis="y", alpha=0.3)
+    for bar, delta in zip(bars, deltas):
+        height = bar.get_height()
+        va = 'bottom' if height >= 0 else 'top'
+        offset = 3 if height >= 0 else -3
+        ax.annotate(f'{delta:+.1f}%', xy=(bar.get_x() + bar.get_width() / 2, height),
+                   xytext=(0, offset), textcoords="offset points", ha='center', va=va, fontsize=9)
+    
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.savefig(output_dir / "ablation_study.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print("  Saved ablation_study.png")
+
+
+def plot_ablation_contribution(ablation_results: Dict[str, AblationResult], output_dir: Path) -> None:
+    """Create a focused contribution analysis plot showing detector importance."""
+    full = ablation_results["full"]
+    no_pii = ablation_results["no_pii"]
+    no_qi = ablation_results["no_qi"]
+    no_detectors = ablation_results["no_detectors"]
+    
+    # Calculate contribution of each detector
+    # PII contribution = Full - No_PII (how much we lose by removing PII)
+    # QI contribution = Full - No_QI (how much we lose by removing QI)
+    # Interaction = Full - No_PII - No_QI + No_Detectors (synergy effect)
+    
+    metrics = ["Precision", "Recall", "F1", "1-FPR", "1-FNR"]
+    
+    pii_contrib = [
+        full.precision - no_pii.precision,
+        full.recall - no_pii.recall,
+        full.f1 - no_pii.f1,
+        (1 - full.false_positive_rate) - (1 - no_pii.false_positive_rate),
+        (1 - full.false_negative_rate) - (1 - no_pii.false_negative_rate),
+    ]
+    
+    qi_contrib = [
+        full.precision - no_qi.precision,
+        full.recall - no_qi.recall,
+        full.f1 - no_qi.f1,
+        (1 - full.false_positive_rate) - (1 - no_qi.false_positive_rate),
+        (1 - full.false_negative_rate) - (1 - no_qi.false_negative_rate),
+    ]
+    
+    # Interaction effect
+    interaction = [
+        full.precision - no_pii.precision - no_qi.precision + no_detectors.precision,
+        full.recall - no_pii.recall - no_qi.recall + no_detectors.recall,
+        full.f1 - no_pii.f1 - no_qi.f1 + no_detectors.f1,
+        (1 - full.false_positive_rate) - (1 - no_pii.false_positive_rate) - (1 - no_qi.false_positive_rate) + (1 - no_detectors.false_positive_rate),
+        (1 - full.false_negative_rate) - (1 - no_pii.false_negative_rate) - (1 - no_qi.false_negative_rate) + (1 - no_detectors.false_negative_rate),
+    ]
+    
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    fig.suptitle("Detector Contribution Analysis", fontsize=14, fontweight="bold")
+    
+    x = np.arange(len(metrics))
+    width = 0.25
+    
+    # Plot 1: Contribution breakdown
+    ax = axes[0]
+    bars1 = ax.bar(x - width, pii_contrib, width, label="PII Detector", color="#e74c3c", alpha=0.8)
+    bars2 = ax.bar(x, qi_contrib, width, label="QI Detector", color="#3498db", alpha=0.8)
+    bars3 = ax.bar(x + width, interaction, width, label="Interaction", color="#9b59b6", alpha=0.8)
+    ax.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
+    ax.set_ylabel("Contribution to Score")
+    ax.set_title("Individual Detector Contributions")
+    ax.set_xticks(x)
+    ax.set_xticklabels(metrics)
+    ax.legend(loc="best")
+    ax.grid(axis="y", alpha=0.3)
+    
+    # Plot 2: Relative importance (percentage of full system performance)
+    ax = axes[1]
+    full_metrics = [full.precision, full.recall, full.f1, 1 - full.false_positive_rate, 1 - full.false_negative_rate]
+    
+    pii_pct = [_safe_div(c, f) * 100 for c, f in zip(pii_contrib, full_metrics)]
+    qi_pct = [_safe_div(c, f) * 100 for c, f in zip(qi_contrib, full_metrics)]
+    
+    bars1 = ax.bar(x - width/2, pii_pct, width, label="PII Detector", color="#e74c3c", alpha=0.8)
+    bars2 = ax.bar(x + width/2, qi_pct, width, label="QI Detector", color="#3498db", alpha=0.8)
+    ax.axhline(y=0, color='black', linestyle='-', linewidth=0.5)
+    ax.set_ylabel("Relative Contribution (%)")
+    ax.set_title("Relative Importance of Each Detector")
+    ax.set_xticks(x)
+    ax.set_xticklabels(metrics)
+    ax.legend(loc="best")
+    ax.grid(axis="y", alpha=0.3)
+    
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    fig.savefig(output_dir / "ablation_contribution.png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print("  Saved ablation_contribution.png")
+
+
+def create_ablation_plots(ablation_results: Dict[str, AblationResult], output_dir: Path) -> None:
+    """Generate all ablation study plots."""
+    print("Creating ablation study plots...")
+    plot_ablation_study(ablation_results, output_dir)
+    plot_ablation_contribution(ablation_results, output_dir)
 
 # =============================================================================
 # Main pipeline + sweep runner
@@ -955,6 +1352,49 @@ def run_benchmark_analysis(
 
     print("\nGenerating benchmark summary plot...")
     plot_benchmark_summary(results, out_path)
+
+    # -- Ablation Study ---------------------------------------------------
+    print("\n" + "-" * 70)
+    print("ABLATION STUDY")
+    print("-" * 70)
+    print("Testing effect of PII and QI detectors...")
+    
+    ablation_results = run_ablation_study(
+        results,
+        tau_review=baseline_tau_review,
+        tau_block=baseline_tau_block,
+        k_min=k_minimum,
+        k_lower_threshold=baseline_k_lower_threshold,
+        w_direct=baseline_w_direct,
+        w_quasi=baseline_w_quasi,
+    )
+    
+    ablation_json = {name: asdict(r) for name, r in ablation_results.items()}
+    _write_json(out_path / "ablation_results.json", ablation_json)
+    print(f"Saved ablation results to {out_path / 'ablation_results.json'}")
+    
+    create_ablation_plots(ablation_results, out_path)
+    
+    # Print ablation summary
+    print("\nAblation Study Results:")
+    print(f"{'Condition':<20} {'Precision':>10} {'Recall':>10} {'F1':>10} {'FPR':>10} {'FNR':>10}")
+    print("-" * 70)
+    for condition in ["full", "no_pii", "no_qi", "no_detectors"]:
+        r = ablation_results[condition]
+        print(f"{r.description:<20} {r.precision:>10.3f} {r.recall:>10.3f} {r.f1:>10.3f} "
+              f"{r.false_positive_rate:>10.3f} {r.false_negative_rate:>10.3f}")
+    
+    # Calculate and print detector contributions
+    full = ablation_results["full"]
+    no_pii = ablation_results["no_pii"]
+    no_qi = ablation_results["no_qi"]
+    
+    pii_contrib_f1 = full.f1 - no_pii.f1
+    qi_contrib_f1 = full.f1 - no_qi.f1
+    
+    print("\nDetector Contributions (F1 score change when removed):")
+    print(f"  PII Detector: {pii_contrib_f1:+.4f} ({_safe_div(pii_contrib_f1, full.f1) * 100:+.1f}% of full system)")
+    print(f"  QI Detector:  {qi_contrib_f1:+.4f} ({_safe_div(qi_contrib_f1, full.f1) * 100:+.1f}% of full system)")
 
     # -- New parameter sweep ----------------------------------------------
     print("\n" + "-" * 70)
