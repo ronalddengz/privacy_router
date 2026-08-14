@@ -1,0 +1,32 @@
+{
+  "total_samples": 628,
+  "tier_1_count": 36,
+  "tier_2_count": 332,
+  "tier_3_count": 260,
+  "tier_1_pct": 5.7324840764331215,
+  "tier_2_pct": 52.86624203821656,
+  "tier_3_pct": 41.40127388535032,
+  "false_cloud_release_count": 161,
+  "false_cloud_release_rate": 25.636942675159236,
+  "over_censoring_count": 94,
+  "over_censoring_rate": 14.968152866242038,
+  "llm_invocation_count": 139,
+  "llm_invocation_rate": 22.13375796178344,
+  "mean_k_lower": 68.39770320940019,
+  "median_k_lower": 12.944022560638107,
+  "mean_k_lower_by_tier": {
+    "TIER_1": 243.0636219818266,
+    "TIER_2": 138.43573813897459,
+    "TIER_3": 8.93244843070438
+  },
+  "mean_total_time": 1.4376502299005058,
+  "mean_llm_time": 1.4125848216560508,
+  "correlations": {
+    "joint_risk_score": 0.09335368905169221,
+    "k_lower": 0.05298282298907706,
+    "direct_identifier_count": 0.311445541560285,
+    "quasi_identifier_count": 0.4362439887689367,
+    "masking_ratio": 0.13752214204200677,
+    "llm_invoked": 0.2888614769584591
+  }
+}
