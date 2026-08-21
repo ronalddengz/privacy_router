@@ -1099,3 +1099,71 @@ class QIDetector:
                         break
         
         return qi
+
+
+def anonymize_text(
+    text: str, 
+    pii_evidences: list[PIIEvidence], 
+    qi_evidences: list[QIEvidence]
+) -> tuple[str, str]:
+    """
+    Performs precise single-pass masking directly on raw text.
+    Avoids offset drift bugs by sorting spans in reverse order.
+    
+    Returns:
+        (text_after_pii_masking, text_after_qi_masking)
+    """
+    # --- 1. PII-Only Masking ---
+    sorted_pii = sorted(
+        pii_evidences, 
+        key=lambda ev: getattr(ev, 'span_start', getattr(ev, 'start_char', 0)), 
+        reverse=True
+    )
+    text_pii = text
+    for pii in sorted_pii:
+        start = getattr(pii, 'span_start', getattr(pii, 'start_char', 0))
+        end = getattr(pii, 'span_end', getattr(pii, 'end_char', 0))
+        label = getattr(pii, 'entity_type', 'PII').upper()
+        text_pii = text_pii[:start] + f"[{label}]" + text_pii[end:]
+
+    # --- 2. Combined PII + QI Masking ---
+    all_spans = []
+    
+    for pii in pii_evidences:
+        all_spans.append({
+            'start': getattr(pii, 'span_start', getattr(pii, 'start_char', 0)),
+            'end': getattr(pii, 'span_end', getattr(pii, 'end_char', 0)),
+            'label': getattr(pii, 'entity_type', 'PII').upper()
+        })
+        
+    for qi in qi_evidences:
+        all_spans.append({
+            'start': getattr(qi, 'span_start', getattr(qi, 'start_char', 0)),
+            'end': getattr(qi, 'span_end', getattr(qi, 'end_char', 0)),
+            'label': getattr(qi, 'qi_type', 'QI').upper()
+        })
+
+    # Sort forward to merge overlaps
+    all_spans.sort(key=lambda x: (x['start'], x['end']))
+    merged_spans = []
+    for span in all_spans:
+        if not merged_spans:
+            merged_spans.append(span)
+        else:
+            last = merged_spans[-1]
+            if span['start'] < last['end']:
+                last['end'] = max(last['end'], span['end'])
+            else:
+                merged_spans.append(span)
+
+    # Sort reverse for safe back-to-front string mutation
+    merged_spans.sort(key=lambda x: x['start'], reverse=True)
+
+    text_qi = text
+    for span in merged_spans:
+        start = span['start']
+        end = span['end']
+        label = span['label']
+        text_qi = text_qi[:start] + f"[{label}]" + text_qi[end:]
+
+    return text_pii, text_qi

@@ -781,9 +781,9 @@ def evaluate_operating_point(
     )
 
 
-TAU_REVIEW_VALUES = _frange(0.02, 0.60, 0.02)
-TAU_BLOCK_VALUES = _frange(0.50, 0.95, 0.05)
-K_MIN_VALUES = list(range(2, 21))
+TAU_REVIEW_VALUES = _frange(0.02, 0.95, 0.05)
+TAU_BLOCK_VALUES = _frange(0.02, 0.95, 0.05)
+K_MIN_VALUES = [5, 10, 15, 20, 30, 50, 75, 100, 150, 200]
 K_LOWER_THRESHOLD_VALUES = [5, 10, 15, 20, 30, 50, 75, 100, 150, 200]
 WEIGHT_VALUES = _frange(0.1, 1.0, 0.1)
 
@@ -818,9 +818,12 @@ def run_param_sweeps(
         eval_point("tau_review", tau_review=v) for v in TAU_REVIEW_VALUES if v < baseline_tau_block
     ]
     sweeps["tau_block"] = [
-        eval_point("tau_block", tau_block=v) for v in TAU_BLOCK_VALUES if v > baseline_tau_review
+        eval_point("tau_block", tau_block=v, w_direct=0.2, w_quasi=0.2) for v in TAU_BLOCK_VALUES if v > baseline_tau_review
     ]
-    sweeps["k_min"] = [eval_point("k_min", k_min=v) for v in K_MIN_VALUES]
+    sweeps["k_min"] = [
+        eval_point("k_min_strict", k_min=v, k_lower_threshold=v) 
+        for v in K_MIN_VALUES
+    ]
     sweeps["k_lower_threshold"] = [
         eval_point("k_lower_threshold", k_lower_threshold=v)
         for v in K_LOWER_THRESHOLD_VALUES

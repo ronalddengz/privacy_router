@@ -19,7 +19,7 @@ from policy import (
     PolicyProfile, Tier, RoutingDecision, PIIEvidence, QIEvidence,
     JointRiskEstimate, ContextualEvidence, EntityCategory
 )
-from detectors import PIIDetector, QIDetector
+from detectors import PIIDetector, QIDetector, anonymize_text
 from risk_estimator import JointRiskEstimator
 from contextual_gate import ContextualGate, GateDecision, GateFeatures
 from contextual_llm import ContextualLLMAnalyzer
@@ -39,6 +39,8 @@ class RoutingResult:
     contextual_evidence: Optional[ContextualEvidence] = None
     gate_features: Optional[GateFeatures] = None
     llm_time: float = 0.0
+    pii_masked_text: str = ""   # text with only direct/strong identifiers masked
+    qi_masked_text: str = ""    # text with identifiers + quasi-identifiers masked
 
     @property
     def llm_judgment(self) -> Optional[dict]:
@@ -102,7 +104,14 @@ class PrivacyRouter:
         
         # === Stage 3: Mask Direct and Strong Identifiers ===
         masked_text = self._apply_masking(text, pii_evidence)
-        
+
+        # Produce the two distinct masked views used for reporting/audit:
+        # - pii_masked_text: identifiers only (mirrors masked_text's intent)
+        # - qi_masked_text: identifiers AND quasi-identifiers masked together
+        # These must be computed from separate span sets or they collapse to
+        # the same string.
+        pii_masked_text, qi_masked_text = anonymize_text(text, pii_evidence, qi_evidence)
+
         # === Stage 4: Joint Risk Estimation ===
         risk_estimate = self.risk_estimator.estimate(qi_evidence, self.policy)
 
@@ -155,6 +164,8 @@ class PrivacyRouter:
                 pii_evidence=pii_evidence,
                 qi_evidence=qi_evidence,
                 risk_estimate=risk_estimate,
+                pii_masked_text=pii_masked_text,
+                qi_masked_text=qi_masked_text,
             )
         
         # === Stage 7: Contextual Gate ===
@@ -254,6 +265,8 @@ class PrivacyRouter:
             contextual_evidence=contextual_evidence,
             gate_features=gate_features,
             llm_time=llm_time,
+            pii_masked_text=pii_masked_text,
+            qi_masked_text=qi_masked_text,
         )
     
     def _apply_masking(self, text: str, pii_evidence: list[PIIEvidence]) -> str:

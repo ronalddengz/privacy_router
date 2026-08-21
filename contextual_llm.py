@@ -120,7 +120,6 @@ Assess these contextual risk factors using ONLY the unredacted content:
 For each factor, provide:
 - detected: true/false
 - confidence: 0.0 to 1.0
-- explanation: brief reason
 
 If evidence comes only from a bracketed placeholder, set detected=false.
 
